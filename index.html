@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum RTS Prototype</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #222;
+            font-family: sans-serif;
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            pointer-events: auto;
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <div id="ui-layer">
+        <div id="controls">
+            <button id="spawn-blue">Spawn Blue (Team 1)</button>
+            <button id="spawn-red">Spawn Red (Team 2)</button>
+        </div>
+        <div id="instructions">
+            ЛКМ (Левая кнопка): Выбрать юнита<br>
+            ПКМ (Правая кнопка): Двигаться в точку
+        </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
+    <style>
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+        }
+        #instructions {
+            background: rgba(0, 0, 0, 0.6);
+            color: #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.4;
+            border-left: 3px solid #666;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            pointer-events: auto;
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #555;
+        }
+    </style>
