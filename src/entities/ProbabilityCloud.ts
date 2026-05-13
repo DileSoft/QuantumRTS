@@ -2,7 +2,7 @@ import 'phaser';
 
 export class ProbabilityCloud extends Phaser.GameObjects.Container {
     private cloudBody: Phaser.GameObjects.Arc;
-    private radius: number = 80;
+    private radius: number = 150;
 
     constructor(scene: Phaser.Scene) {
         super(scene, Phaser.Math.Between(0, window.innerWidth), Phaser.Math.Between(0, window.innerHeight));
@@ -29,7 +29,7 @@ export class ProbabilityCloud extends Phaser.GameObjects.Container {
         const moveCloud = () => {
             const destX = Phaser.Math.Between(0, window.innerWidth);
             const destY = Phaser.Math.Between(0, window.innerHeight);
-            const duration = Phaser.Math.Between(5000, 10000);
+            const duration = Phaser.Math.Between(15000, 25000);
 
             this.scene.tweens.add({
                 targets: this,
