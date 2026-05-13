@@ -56,6 +56,11 @@ export abstract class BaseUnit extends BaseEntity {
         this.targetX = null;
         this.targetY = null;
         
+        // Notify scene to remove from tracking arrays immediately
+        if ((this.scene as any).removeEntity) {
+            (this.scene as any).removeEntity(this);
+        }
+
         const body = this.body as MatterJS.BodyType;
         if (body) {
             body.velocity.x = 0;

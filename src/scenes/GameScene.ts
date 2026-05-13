@@ -27,6 +27,24 @@ export class GameScene extends Phaser.Scene {
         super('GameScene');
     }
 
+    public removeEntity(entity: Phaser.GameObjects.GameObject) {
+        if (entity instanceof BaseUnit) {
+            this.unitGroup = this.unitGroup.filter(u => u !== entity);
+        } else if (entity instanceof Factory) {
+            this.buildingGroup = this.buildingGroup.filter(b => b !== entity);
+        } else if (entity instanceof LaserTower) {
+            this.towerGroup = this.towerGroup.filter(t => t !== entity);
+        } else if (entity instanceof Wall) {
+            this.wallGroup = this.wallGroup.filter(w => w !== entity);
+        } else if (entity instanceof HealObject) {
+            this.healGroup = this.healGroup.filter(h => h !== entity);
+        }
+        
+        if (entity instanceof BaseEntity) {
+            this.selectedEntities = this.selectedEntities.filter(e => e !== entity);
+        }
+    }
+
     create() {
         // Background
         this.add.grid(
@@ -140,6 +158,7 @@ export class GameScene extends Phaser.Scene {
                     } else {
                         unit.takeDamage(15);
                     }
+                    this.removeEntity(heal);
                     heal.destroy();
                 }
             });
@@ -340,7 +359,6 @@ export class GameScene extends Phaser.Scene {
         }
 
         // Update heal objects visuals
-        this.healGroup = this.healGroup.filter(h => h.active);
         this.healGroup.forEach(obj => {
             const h = obj as HealObject;
             const inCloud = this.clouds.some(c => c.isOverlapping(h.x, h.y));
@@ -348,22 +366,15 @@ export class GameScene extends Phaser.Scene {
         });
 
         // Update walls
-        this.wallGroup = this.wallGroup.filter(w => w.active);
         this.wallGroup.forEach(obj => {
             const w = obj as Wall;
             const inCloud = this.clouds.some(c => c.isOverlapping(w.x, w.y));
             w.update(time, inCloud);
         });
 
-        // Cleanup dead entities (Phaser groups handle some of this, but we need lists for logic)
-        const units = this.unitGroup;
-        const buildings = this.buildingGroup;
-        const towers = this.towerGroup;
-
-        const allEntities: BaseEntity[] = [...units, ...buildings, ...towers];
+        const allEntities: BaseEntity[] = [...this.unitGroup, ...this.buildingGroup, ...this.towerGroup];
 
         // Update each unit
-        this.unitGroup = this.unitGroup.filter(u => u.active);
         for (const unit of this.unitGroup) {
             const inCloud = this.clouds.some(cloud => cloud.isOverlapping(unit.x, unit.y));
             unit.setCloudEffect(inCloud);

@@ -16,6 +16,11 @@ export abstract class BaseBuilding extends BaseEntity {
     }
 
     protected die() {
+        // Notify scene to remove from tracking arrays immediately
+        if ((this.scene as any).removeEntity) {
+            (this.scene as any).removeEntity(this);
+        }
+
         // Remove physics body immediately upon death
         const body = this.body as MatterJS.BodyType;
         if (body) {
