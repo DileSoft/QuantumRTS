@@ -61,6 +61,28 @@ export abstract class BaseEntity extends Phaser.GameObjects.Container {
         }
     }
 
+    public heal(amount: number) {
+        if (this.hp <= 0) return;
+        
+        this.hp = Math.min(this.maxHp, this.hp + amount);
+        this.updateHealthBar();
+        
+        // Show healing text in green
+        const healText = this.scene.add.text(this.x, this.y - 20, `+${amount}`, {
+            fontSize: '16px',
+            color: '#00ff00',
+            fontStyle: 'bold'
+        });
+        healText.setOrigin(0.5);
+        this.scene.tweens.add({
+            targets: healText,
+            y: this.y - 50,
+            alpha: 0,
+            duration: 1000,
+            onComplete: () => healText.destroy()
+        });
+    }
+
     public setCloudEffect(inCloud: boolean) {
         if (this.hp <= 0) return;
         

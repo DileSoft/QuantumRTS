@@ -5,12 +5,15 @@ import { TankUnit } from '../entities/TankUnit';
 import { BuilderUnit } from '../entities/BuilderUnit';
 import { ProbabilityCloud } from '../entities/ProbabilityCloud';
 import { Factory } from '../entities/Factory';
+import { HealObject } from '../entities/HealObject';
 
 export class GameScene extends Phaser.Scene {
     private unitGroup!: Phaser.Physics.Arcade.Group;
     private buildingGroup!: Phaser.Physics.Arcade.StaticGroup;
+    private healGroup!: Phaser.Physics.Arcade.Group;
     private selectedEntities: BaseEntity[] = [];
     private clouds: ProbabilityCloud[] = [];
+    private lastHealSpawn: number = 0;
     private selectionRect!: Phaser.GameObjects.Rectangle;
     private isSelecting: boolean = false;
     private selectionStartPoint: Phaser.Math.Vector2 = new Phaser.Math.Vector2();
@@ -27,6 +30,7 @@ export class GameScene extends Phaser.Scene {
             collideWorldBounds: true
         });
         this.buildingGroup = this.physics.add.staticGroup();
+        this.healGroup = this.physics.add.group();
         // Background
         this.add.grid(
             window.innerWidth / 2, 
@@ -117,6 +121,17 @@ export class GameScene extends Phaser.Scene {
         // Collision Setup (using groups for continuous tracking)
         this.physics.add.collider(this.unitGroup, this.unitGroup);
         this.physics.add.collider(this.unitGroup, this.buildingGroup);
+
+        this.physics.add.overlap(this.unitGroup, this.healGroup, (unit, heal) => {
+            const h = heal as HealObject;
+            const u = unit as BaseUnit;
+            if (h.isHealing) {
+                u.heal(10); // Use new heal function
+            } else {
+                u.takeDamage(5); // Damage 5 in cloud
+            }
+            h.destroy();
+        });
     }
 
     private spawnTank(x: number | null, y: number | null, team: number, color: number) {
@@ -226,6 +241,31 @@ export class GameScene extends Phaser.Scene {
     }
 
     update(time: number, delta: number) {
+        // Spawn heal objects
+        if (time > this.lastHealSpawn + 1000) {
+            this.lastHealSpawn = time;
+            
+            // Random position
+            const rx = Phaser.Math.Between(50, window.innerWidth - 50);
+            const ry = Phaser.Math.Between(50, window.innerHeight - 50);
+            
+            // Check if cloud is over spawn point to increase probability
+            const cloudOverSpawn = this.clouds.some(c => c.isOverlapping(rx, ry));
+            const chance = cloudOverSpawn ? 20 : 5; // 20% if in cloud, 5% normally
+            
+            if (Phaser.Math.Between(1, 100) <= chance) {
+                const heal = new HealObject(this, rx, ry);
+                this.healGroup.add(heal);
+            }
+        }
+
+        // Update heal objects visuals
+        this.healGroup.getChildren().forEach(obj => {
+            const h = obj as HealObject;
+            const inCloud = this.clouds.some(c => c.isOverlapping(h.x, h.y));
+            h.updateVisuals(inCloud);
+        });
+
         // Cleanup dead entities (Phaser groups handle some of this, but we need lists for logic)
         const units = this.unitGroup.getChildren() as BaseUnit[];
         const buildings = this.buildingGroup.getChildren() as Factory[];
