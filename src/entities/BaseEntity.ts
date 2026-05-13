@@ -19,6 +19,8 @@ export abstract class BaseEntity extends Phaser.GameObjects.Container {
     protected healthBarBg: Phaser.GameObjects.Rectangle;
     protected healthBarFill: Phaser.GameObjects.Rectangle;
 
+    protected glow: Phaser.FX.Glow | null = null;
+
     constructor(config: EntityConfig) {
         super(config.scene, config.x, config.y);
         this.team = config.team;
@@ -56,6 +58,25 @@ export abstract class BaseEntity extends Phaser.GameObjects.Container {
 
         if (this.hp <= 0) {
             this.die();
+        }
+    }
+
+    public setCloudEffect(inCloud: boolean) {
+        if (this.hp <= 0) return;
+        
+        // Use postFX bloom if available in Phaser 3.60+, otherwise simple brightness via tint
+        if (inCloud) {
+            this.setAlpha(1);
+            // We use a slight additive tint to "brighten" the container
+            if (!this.glow) {
+                this.glow = this.postFX.addGlow(0xffffff, 2);
+            }
+        } else {
+            this.setAlpha(1);
+            if (this.glow) {
+                this.postFX.remove(this.glow);
+                this.glow = null;
+            }
         }
     }
 

@@ -181,6 +181,7 @@ export class GameScene extends Phaser.Scene {
         // Update each unit
         for (const unit of units) {
             const inCloud = this.clouds.some(cloud => cloud.isOverlapping(unit.x, unit.y));
+            unit.setCloudEffect(inCloud);
             if (unit instanceof TankUnit) {
                 unit.update(time, delta, allEntities, inCloud);
             } else {
@@ -191,6 +192,7 @@ export class GameScene extends Phaser.Scene {
         // Update buildings
         for (const building of buildings) {
             const inCloud = this.clouds.some(cloud => cloud.isOverlapping(building.x, building.y));
+            building.setCloudEffect(inCloud);
             building.update(time, inCloud);
         }
     }
