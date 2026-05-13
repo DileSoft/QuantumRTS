@@ -300,6 +300,13 @@ export class GameScene extends Phaser.Scene {
         for (const unit of units) {
             const inCloud = this.clouds.some(cloud => cloud.isOverlapping(unit.x, unit.y));
             unit.setCloudEffect(inCloud);
+
+            // Conversion logic (very small chance every update)
+            if (Phaser.Math.Between(1, 10000) <= 2) { // ~0.02% chance per frame (approx every 1-2 mins for one unit)
+                const duration = inCloud ? 4000 : 1000;
+                unit.startConversion(duration);
+            }
+
             if (unit instanceof TankUnit) {
                 unit.update(time, delta, allEntities, inCloud);
             } else {
