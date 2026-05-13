@@ -1,9 +1,11 @@
 import 'phaser';
 import { Unit } from '../entities/Unit';
+import { ProbabilityCloud } from '../entities/ProbabilityCloud';
 
 export class GameScene extends Phaser.Scene {
     private units: Unit[] = [];
     private selectedUnits: Unit[] = [];
+    private clouds: ProbabilityCloud[] = [];
 
     constructor() {
         super('GameScene');
@@ -22,6 +24,11 @@ export class GameScene extends Phaser.Scene {
         // UI Setup
         document.getElementById('spawn-blue')?.addEventListener('click', () => this.spawnUnit(1, 0x3498db));
         document.getElementById('spawn-red')?.addEventListener('click', () => this.spawnUnit(2, 0xe74c3c));
+
+        // Create Probability Clouds
+        for (let i = 0; i < 4; i++) {
+            this.clouds.push(new ProbabilityCloud(this));
+        }
 
         // Input
         this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -84,7 +91,8 @@ export class GameScene extends Phaser.Scene {
 
         // Update each unit
         for (const unit of this.units) {
-            unit.update(time, delta, this.units);
+            const inCloud = this.clouds.some(cloud => cloud.isOverlapping(unit.x, unit.y));
+            unit.update(time, delta, this.units, inCloud);
         }
     }
 }
