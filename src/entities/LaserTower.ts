@@ -31,22 +31,22 @@ export class LaserTower extends BaseEntity {
         scene.physics.add.existing(this, true);
     }
 
-    public update(time: number, allUnits: BaseEntity[], inCloud: boolean) {
+    public update(time: number, allEntities: BaseEntity[], inCloud: boolean) {
         if (this.hp <= 0) return;
 
         this.isHealingMode = inCloud;
         this.turretSprite.setFillStyle(this.isHealingMode ? 0x2ecc71 : 0xe74c3c);
 
         if (time > this.lastFired + this.fireRate) {
-            this.handleCombat(time, allUnits);
+            this.handleCombat(time, allEntities);
         }
     }
 
-    private handleCombat(time: number, allUnits: BaseEntity[]) {
+    private handleCombat(time: number, allEntities: BaseEntity[]) {
         let closestTarget: BaseEntity | null = null;
         let minDistance = this.attackRange;
 
-        for (const target of allUnits) {
+        for (const target of allEntities) {
             if (target === this || target.hp <= 0) continue;
             const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
             if (dist < minDistance) {

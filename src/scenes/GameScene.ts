@@ -326,7 +326,7 @@ export class GameScene extends Phaser.Scene {
             if (!tower.active) continue;
             const inCloud = this.clouds.some(cloud => cloud.isOverlapping(tower.x, tower.y));
             tower.setCloudEffect(inCloud);
-            tower.update(time, units, inCloud);
+            tower.update(time, allEntities, inCloud);
         }
     }
 }
