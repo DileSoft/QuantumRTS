@@ -11,6 +11,9 @@ export class GameScene extends Phaser.Scene {
     private buildingGroup!: Phaser.Physics.Arcade.StaticGroup;
     private selectedEntities: BaseEntity[] = [];
     private clouds: ProbabilityCloud[] = [];
+    private selectionRect!: Phaser.GameObjects.Rectangle;
+    private isSelecting: boolean = false;
+    private selectionStartPoint: Phaser.Math.Vector2 = new Phaser.Math.Vector2();
 
     constructor() {
         super('GameScene');
@@ -70,12 +73,41 @@ export class GameScene extends Phaser.Scene {
             this.clouds.push(new ProbabilityCloud(this));
         }
 
+        // Selection Rectangle
+        this.selectionRect = this.add.rectangle(0, 0, 0, 0, 0x00ff00, 0.2);
+        this.selectionRect.setStrokeStyle(1, 0x00ff00);
+        this.selectionRect.setOrigin(0, 0);
+        this.selectionRect.setVisible(false);
+        this.selectionRect.setDepth(1000);
+
         // Input
         this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
             if (pointer.leftButtonDown()) {
-                this.handleLeftClick(pointer);
+                this.isSelecting = true;
+                this.selectionStartPoint.set(pointer.x, pointer.y);
+                this.selectionRect.setPosition(pointer.x, pointer.y);
+                this.selectionRect.setSize(0, 0);
+                this.selectionRect.setVisible(true);
             } else if (pointer.rightButtonDown()) {
                 this.handleRightClick(pointer);
+            }
+        });
+
+        this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+            if (this.isSelecting) {
+                const width = pointer.x - this.selectionStartPoint.x;
+                const height = pointer.y - this.selectionStartPoint.y;
+                this.selectionRect.setSize(width, height);
+            }
+        });
+
+        this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+            if (pointer.leftButtonReleased()) {
+                if (this.isSelecting) {
+                    this.handleSelection(pointer);
+                    this.isSelecting = false;
+                    this.selectionRect.setVisible(false);
+                }
             }
         });
 
@@ -125,32 +157,54 @@ export class GameScene extends Phaser.Scene {
         this.buildingGroup.add(factory);
     }
 
-    private handleLeftClick(pointer: Phaser.Input.Pointer) {
+    private handleSelection(pointer: Phaser.Input.Pointer) {
         // Clear previous selection
         this.selectedEntities.forEach(e => e.setSelected(false));
         this.selectedEntities = [];
+
+        const x1 = Math.min(this.selectionStartPoint.x, pointer.x);
+        const y1 = Math.min(this.selectionStartPoint.y, pointer.y);
+        const x2 = Math.max(this.selectionStartPoint.x, pointer.x);
+        const y2 = Math.max(this.selectionStartPoint.y, pointer.y);
+        
+        const selectionRect = new Phaser.Geom.Rectangle(x1, y1, x2 - x1, y2 - y1);
+        const isSingleClick = selectionRect.width < 5 && selectionRect.height < 5;
 
         // Check units
         this.unitGroup.getChildren().forEach(obj => {
             const unit = obj as BaseUnit;
             if (!unit.active) return;
-            const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, unit.x, unit.y);
-            if (dist < 40) {
-                unit.setSelected(true);
-                this.selectedEntities.push(unit);
+            
+            if (isSingleClick) {
+                if (Phaser.Math.Distance.Between(pointer.x, pointer.y, unit.x, unit.y) < 40) {
+                    this.selectedEntities.push(unit);
+                }
+            } else {
+                if (selectionRect.contains(unit.x, unit.y)) {
+                    this.selectedEntities.push(unit);
+                }
             }
         });
 
-        // Check buildings
-        this.buildingGroup.getChildren().forEach(obj => {
-            const b = obj as Factory;
-            if (!b.active) return;
-            const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, b.x, b.y);
-            if (dist < 50) {
-                b.setSelected(true);
-                this.selectedEntities.push(b);
-            }
-        });
+        // Check buildings (only if no units selected or it was a click)
+        if (this.selectedEntities.length === 0 || isSingleClick) {
+            this.buildingGroup.getChildren().forEach(obj => {
+                const b = obj as Factory;
+                if (!b.active) return;
+                
+                if (isSingleClick) {
+                    if (Phaser.Math.Distance.Between(pointer.x, pointer.y, b.x, b.y) < 50) {
+                        this.selectedEntities.push(b);
+                    }
+                } else {
+                    if (selectionRect.contains(b.x, b.y)) {
+                        this.selectedEntities.push(b);
+                    }
+                }
+            });
+        }
+
+        this.selectedEntities.forEach(e => e.setSelected(true));
 
         // Show/Hide build button if builder is selected
         const builderSelected = this.selectedEntities.some(e => e instanceof BuilderUnit);
