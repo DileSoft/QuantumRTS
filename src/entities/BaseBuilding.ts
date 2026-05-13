@@ -9,9 +9,6 @@ export abstract class BaseBuilding extends BaseEntity {
     constructor(config: BuildingConfig) {
         super({ ...config, hp: config.hp ?? 500 });
 
-        this.scene.physics.add.existing(this);
-        (this.body as Phaser.Physics.Arcade.Body).setImmovable(true);
-        
         // Default building UI adjustments
         this.healthBarBg.setY(-45);
         this.healthBarFill.setY(-45);
@@ -19,6 +16,12 @@ export abstract class BaseBuilding extends BaseEntity {
     }
 
     protected die() {
+        // Remove physics body immediately upon death
+        const body = this.body as MatterJS.BodyType;
+        if (body) {
+            this.scene.matter.world.remove(body);
+        }
+
         this.setAlpha(0.3);
         this.healthBarBg.setVisible(false);
         this.healthBarFill.setVisible(false);

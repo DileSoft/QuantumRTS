@@ -17,8 +17,14 @@ export class TankUnit extends BaseUnit {
         this.bodySprite = this.scene.add.rectangle(0, 0, size, size, this.color);
         this.add(this.bodySprite);
 
-        const body = this.body as Phaser.Physics.Arcade.Body;
-        body.setCircle(size / 2);
+        this.scene.matter.add.gameObject(this, {
+            shape: { type: 'rectangle', width: size, height: size },
+            frictionAir: 0.1,
+            restitution: 0.5
+        });
+        
+        const body = this.body as MatterJS.BodyType;
+        this.scene.matter.body.setInertia(body, Infinity); // Real RTS units don't rotate on collision
     }
 
     public update(time: number, delta: number, enemies: BaseEntity[] = [], inCloud: boolean = false) {

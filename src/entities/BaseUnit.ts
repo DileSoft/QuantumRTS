@@ -18,10 +18,6 @@ export abstract class BaseUnit extends BaseEntity {
 
     constructor(config: UnitConfig) {
         super({ ...config, hp: config.hp ?? 100 });
-
-        this.scene.physics.add.existing(this);
-        const body = this.body as Phaser.Physics.Arcade.Body;
-        body.setCollideWorldBounds(true);
         
         // Default unit UI adjustments
         this.healthBarBg.setY(-25);
@@ -41,16 +37,16 @@ export abstract class BaseUnit extends BaseEntity {
             this.revertConversion();
         }
 
-        const body = this.body as Phaser.Physics.Arcade.Body;
-
         if (this.targetX !== null && this.targetY !== null) {
             const distance = Phaser.Math.Distance.Between(this.x, this.y, this.targetX, this.targetY);
             if (distance < 5) {
-                body.setVelocity(0, 0);
+                (this as unknown as Phaser.Physics.Matter.Sprite).setVelocity(0, 0);
                 this.targetX = null;
                 this.targetY = null;
             } else {
-                this.scene.physics.moveTo(this, this.targetX, this.targetY, this.speed);
+                const angle = Phaser.Math.Angle.Between(this.x, this.y, this.targetX, this.targetY);
+                (this as unknown as Phaser.Physics.Matter.Sprite).setVelocity(Math.cos(angle) * this.speed / 100, Math.sin(angle) * this.speed / 100);
+                // (this.body as MatterJS.BodyType).velocity.y = Math.sin(angle) * this.speed / 50;
             }
         }
     }
@@ -59,9 +55,15 @@ export abstract class BaseUnit extends BaseEntity {
         if (this.statusText) this.statusText.destroy();
         this.targetX = null;
         this.targetY = null;
-        const body = this.body as Phaser.Physics.Arcade.Body;
-        body.setVelocity(0, 0);
-        body.setEnable(false);
+        
+        const body = this.body as MatterJS.BodyType;
+        if (body) {
+            body.velocity.x = 0;
+            body.velocity.y = 0;
+            // Disable physics for the body so other units don't bump into the "corpse"
+            this.scene.matter.world.remove(body);
+        }
+
         this.setAlpha(0.3);
         this.healthBarBg.setVisible(false);
         this.healthBarFill.setVisible(false);
@@ -82,20 +84,28 @@ export abstract class BaseUnit extends BaseEntity {
         this.color = this.team === 1 ? 0x3498db : 0xe74c3c;
         this.updateBodyColor();
 
-        this.statusText = this.scene.add.text(0, -50, 'CONVERTED!', {
+        const statusText = this.scene.add.text(0, -50, 'CONVERTED!', {
             fontSize: '10px',
             color: '#ffff00',
             backgroundColor: '#000'
         }).setOrigin(0.5);
-        this.add(this.statusText);
+        this.add(statusText);
+        this.statusText = statusText;
         
         // Shake tween
-        this.scene.tweens.add({
+        const shakeTween = this.scene.tweens.add({
             targets: this,
             angle: { from: -5, to: 5 },
             duration: 100,
             yoyo: true,
             repeat: -1
+        });
+
+        // Ensure tween is stopped and cleaned up when destroyed
+        this.on('destroy', () => {
+            if (shakeTween && shakeTween.isPlaying()) {
+                shakeTween.stop();
+            }
         });
     }
 

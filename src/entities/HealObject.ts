@@ -16,19 +16,24 @@ export class HealObject extends Phaser.GameObjects.Container {
         this.add(glow);
 
         scene.add.existing(this);
-        scene.physics.add.existing(this);
-        
-        const body = this.body as Phaser.Physics.Arcade.Body;
-        body.setCircle(10);
+        scene.matter.add.gameObject(this, { 
+            isSensor: true,
+            shape: { type: 'circle', radius: 10 }
+        }); // Sensors don't physicaly collide but detect overlaps
         
         // Floating animation
-        scene.tweens.add({
+        const floatingTween = scene.tweens.add({
             targets: this,
             y: y - 10,
             duration: 1000,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.easeInOut'
+        });
+
+        // Ensure tween is destroyed when the object is destroyed
+        this.on('destroy', () => {
+            floatingTween.stop();
         });
     }
 

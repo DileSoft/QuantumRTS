@@ -15,8 +15,14 @@ export class BuilderUnit extends BaseUnit {
         this.bodySprite.setStrokeStyle(2, 0xffffff);
         this.add(this.bodySprite);
 
-        const body = this.body as Phaser.Physics.Arcade.Body;
-        body.setCircle(size / 2);
+        this.scene.matter.add.gameObject(this, {
+            shape: { type: 'rectangle', width: size, height: size },
+            frictionAir: 0.1,
+            restitution: 0.5
+        });
+        
+        const body = this.body as MatterJS.BodyType;
+        this.scene.matter.body.setInertia(body, Infinity);
     }
 
     public build() {

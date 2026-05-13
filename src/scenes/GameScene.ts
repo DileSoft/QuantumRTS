@@ -7,12 +7,14 @@ import { ProbabilityCloud } from '../entities/ProbabilityCloud';
 import { Factory } from '../entities/Factory';
 import { HealObject } from '../entities/HealObject';
 import { LaserTower } from '../entities/LaserTower';
+import { Wall } from '../entities/Wall';
 
 export class GameScene extends Phaser.Scene {
-    private unitGroup!: Phaser.Physics.Arcade.Group;
-    private buildingGroup!: Phaser.Physics.Arcade.StaticGroup;
-    private healGroup!: Phaser.Physics.Arcade.Group;
-    private towerGroup!: Phaser.Physics.Arcade.StaticGroup;
+    private unitGroup: BaseUnit[] = [];
+    private buildingGroup: Factory[] = [];
+    private healGroup: HealObject[] = [];
+    private towerGroup: LaserTower[] = [];
+    private wallGroup: Wall[] = [];
     private selectedEntities: BaseEntity[] = [];
     private clouds: ProbabilityCloud[] = [];
     private lastHealSpawn: number = 0;
@@ -26,15 +28,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     create() {
-        // Groups for physics
-        this.unitGroup = this.physics.add.group({
-            bounceX: 0.5,
-            bounceY: 0.5,
-            collideWorldBounds: true
-        });
-        this.buildingGroup = this.physics.add.staticGroup();
-        this.healGroup = this.physics.add.group();
-        this.towerGroup = this.physics.add.staticGroup();
         // Background
         this.add.grid(
             window.innerWidth / 2, 
@@ -43,6 +36,9 @@ export class GameScene extends Phaser.Scene {
             window.innerHeight * 2, 
             64, 64, 0x333333
         ).setAltFillStyle(0x2a2a2a).setOutlineStyle();
+        
+        // Matter World Setup
+        this.matter.world.setBounds(0, 0, window.innerWidth, window.innerHeight);
 
         // UI Setup
         document.getElementById('spawn-blue')?.addEventListener('click', () => this.spawnTank(null, null, 1, 0x3498db));
@@ -80,6 +76,8 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < 4; i++) {
             this.clouds.push(new ProbabilityCloud(this));
         }
+
+        this.generateWalls();
 
         // Selection Rectangle
         this.selectionRect = this.add.rectangle(0, 0, 0, 0, 0x00ff00, 0.2);
@@ -122,23 +120,84 @@ export class GameScene extends Phaser.Scene {
         // Prevent context menu on right click
         this.input.mouse?.disableContextMenu();
 
-        // Collision Setup (using groups for continuous tracking)
-        this.physics.add.collider(this.unitGroup, this.unitGroup);
-        this.physics.add.collider(this.unitGroup, this.buildingGroup);
-        this.physics.add.collider(this.unitGroup, this.towerGroup);
-        this.physics.add.collider(this.towerGroup, this.towerGroup);
-        this.physics.add.collider(this.buildingGroup, this.towerGroup);
+        // Matter collisions for picking up heal objects
+        this.matter.world.on('collisionstart', (event: any) => {
+            event.pairs.forEach((pair: any) => {
+                const { bodyA, bodyB } = pair;
+                
+                const objA = bodyA.gameObject;
+                const objB = bodyB.gameObject;
 
-        this.physics.add.overlap(this.unitGroup, this.healGroup, (unit, heal) => {
-            const h = heal as HealObject;
-            const u = unit as BaseUnit;
-            if (h.isHealing) {
-                u.heal(10); // Use new heal function
-            } else {
-                u.takeDamage(5); // Damage 5 in cloud
-            }
-            h.destroy();
+                if (!objA || !objB) return;
+
+                // Check if one is a Unit and another is a HealObject
+                let unit = objA instanceof BaseUnit ? objA : (objB instanceof BaseUnit ? objB : null);
+                let heal = objA instanceof HealObject ? objA : (objB instanceof HealObject ? objB : null);
+
+                if (unit && heal && heal.active) {
+                    if (heal.isHealing) {
+                        unit.heal(25);
+                    } else {
+                        unit.takeDamage(15);
+                    }
+                    heal.destroy();
+                }
+            });
         });
+
+        // Matter collisions are handled automatically by the engine
+    }
+
+    private generateWalls() {
+        const numWalls = 10;
+        const maxLen = window.innerWidth / 2;
+        let createdCount = 0;
+        let attempts = 0;
+
+        while (createdCount < numWalls && attempts < 100) {
+            attempts++;
+            const length = Phaser.Math.Between(100, maxLen);
+            const thickness = 20;
+            
+            const x = Phaser.Math.Between(100, window.innerWidth - 100);
+            const y = Phaser.Math.Between(100, window.innerHeight - 100);
+            const angle = Phaser.Math.FloatBetween(0, Math.PI); // Random angle in radians
+
+            // Create a temporary Matter body to check for overlaps
+            // This is the most accurate way since walls are rotated rectangles
+            const tempBody = (this.matter.add).rectangle(x, y, length, thickness, { angle: angle });
+            
+            let overlaps = false;
+
+            // 1. Check overlaps with other walls (Matter bodies)
+            const bodies = this.matter.world.getAllBodies();
+            for (const body of bodies) {
+                if (body === tempBody) continue;
+                
+                // Use Matter.Query.collides to check for actual geometric intersection
+                const collision = (Phaser.Physics.Matter as any).Matter.Query.collides(tempBody, [body]);
+                if (collision.length > 0) {
+                    overlaps = true;
+                    break;
+                }
+            }
+
+            // 2. Additional distance check from starting units (manual for safety)
+            if (!overlaps) {
+                this.unitGroup.forEach(unit => {
+                    if (Phaser.Math.Distance.Between(x, y, unit.x, unit.y) < 200) overlaps = true;
+                });
+            }
+
+            // Remove the temporary body from the physics world
+            this.matter.world.remove(tempBody);
+
+            if (!overlaps) {
+                const wall = new Wall(this, x, y, length, thickness, angle);
+                this.wallGroup.push(wall);
+                createdCount++;
+            }
+        }
     }
 
     private spawnTank(x: number | null, y: number | null, team: number, color: number) {
@@ -152,7 +211,7 @@ export class GameScene extends Phaser.Scene {
             team,
             color
         });
-        this.unitGroup.add(tank);
+        this.unitGroup.push(tank);
     }
 
     private spawnBuilder(x: number, y: number, team: number, color: number) {
@@ -164,7 +223,7 @@ export class GameScene extends Phaser.Scene {
             color,
             onBuild: (bx, by, bt, bc) => this.createFactory(bx, by, bt, bc)
         });
-        this.unitGroup.add(builder);
+        this.unitGroup.push(builder);
     }
 
     private createFactory(x: number, y: number, team: number, color: number) {
@@ -176,7 +235,7 @@ export class GameScene extends Phaser.Scene {
             color,
             onSpawnUnit: (ux, uy, ut, uc) => this.spawnTank(ux, uy, ut, uc)
         });
-        this.buildingGroup.add(factory);
+        this.buildingGroup.push(factory);
     }
 
     private handleSelection(pointer: Phaser.Input.Pointer) {
@@ -193,8 +252,7 @@ export class GameScene extends Phaser.Scene {
         const isSingleClick = selectionRect.width < 5 && selectionRect.height < 5;
 
         // Check units
-        this.unitGroup.getChildren().forEach(obj => {
-            const unit = obj as BaseUnit;
+        this.unitGroup.forEach(unit => {
             if (!unit.active) return;
             
             if (isSingleClick) {
@@ -210,8 +268,7 @@ export class GameScene extends Phaser.Scene {
 
         // Check buildings (only if no units selected or it was a click)
         if (this.selectedEntities.length === 0 || isSingleClick) {
-            this.buildingGroup.getChildren().forEach(obj => {
-                const b = obj as Factory;
+            this.buildingGroup.forEach(b => {
                 if (!b.active) return;
                 
                 if (isSingleClick) {
@@ -262,7 +319,7 @@ export class GameScene extends Phaser.Scene {
             
             if (Phaser.Math.Between(1, 100) <= chance) {
                 const heal = new HealObject(this, rx, ry);
-                this.healGroup.add(heal);
+                this.healGroup.push(heal);
             }
         }
 
@@ -278,26 +335,36 @@ export class GameScene extends Phaser.Scene {
             
             if (Phaser.Math.Between(1, 100) <= chance) {
                 const tower = new LaserTower(this, rx, ry);
-                this.towerGroup.add(tower);
+                this.towerGroup.push(tower);
             }
         }
 
         // Update heal objects visuals
-        this.healGroup.getChildren().forEach(obj => {
+        this.healGroup = this.healGroup.filter(h => h.active);
+        this.healGroup.forEach(obj => {
             const h = obj as HealObject;
             const inCloud = this.clouds.some(c => c.isOverlapping(h.x, h.y));
             h.updateVisuals(inCloud);
         });
 
+        // Update walls
+        this.wallGroup = this.wallGroup.filter(w => w.active);
+        this.wallGroup.forEach(obj => {
+            const w = obj as Wall;
+            const inCloud = this.clouds.some(c => c.isOverlapping(w.x, w.y));
+            w.update(time, inCloud);
+        });
+
         // Cleanup dead entities (Phaser groups handle some of this, but we need lists for logic)
-        const units = this.unitGroup.getChildren() as BaseUnit[];
-        const buildings = this.buildingGroup.getChildren() as Factory[];
-        const towers = this.towerGroup.getChildren() as LaserTower[];
+        const units = this.unitGroup;
+        const buildings = this.buildingGroup;
+        const towers = this.towerGroup;
 
         const allEntities: BaseEntity[] = [...units, ...buildings, ...towers];
 
         // Update each unit
-        for (const unit of units) {
+        this.unitGroup = this.unitGroup.filter(u => u.active);
+        for (const unit of this.unitGroup) {
             const inCloud = this.clouds.some(cloud => cloud.isOverlapping(unit.x, unit.y));
             unit.setCloudEffect(inCloud);
 
@@ -315,18 +382,27 @@ export class GameScene extends Phaser.Scene {
         }
 
         // Update buildings
-        for (const building of buildings) {
+        this.buildingGroup = this.buildingGroup.filter(b => b.active);
+        for (const building of this.buildingGroup) {
             const inCloud = this.clouds.some(cloud => cloud.isOverlapping(building.x, building.y));
             building.setCloudEffect(inCloud);
             building.update(time, inCloud);
         }
 
         // Update towers
-        for (const tower of towers) {
-            if (!tower.active) continue;
+        this.towerGroup = this.towerGroup.filter(t => t.active);
+        for (const tower of this.towerGroup) {
             const inCloud = this.clouds.some(cloud => cloud.isOverlapping(tower.x, tower.y));
             tower.setCloudEffect(inCloud);
             tower.update(time, allEntities, inCloud);
         }
+
+        // Update heal objects
+        this.healGroup = this.healGroup.filter(h => h.active);
+        this.healGroup.forEach(obj => {
+            const h = obj as HealObject;
+            const inCloud = this.clouds.some(c => c.isOverlapping(h.x, h.y));
+            h.updateVisuals(inCloud);
+        });
     }
 }

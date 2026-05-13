@@ -28,7 +28,10 @@ export class LaserTower extends BaseEntity {
         this.add(this.turretSprite);
 
         // Static body for building
-        scene.physics.add.existing(this, true);
+        scene.matter.add.gameObject(this, { 
+            isStatic: true, 
+            shape: { type: 'rectangle', width: size, height: size } 
+        });
     }
 
     public update(time: number, allEntities: BaseEntity[], inCloud: boolean) {
@@ -91,11 +94,16 @@ export class LaserTower extends BaseEntity {
     }
 
     protected die() {
+        // Remove physics body immediately upon death
+        const body = this.body as MatterJS.BodyType;
+        if (body) {
+            this.scene.matter.world.remove(body);
+        }
+
         this.setActive(false);
         this.setVisible(false);
-        const body = this.body as Phaser.Physics.Arcade.StaticBody;
-        if (body) body.enable = false;
         
+        // Matter bodies are removed when the object is destroyed
         // Explosion effects could go here, for now just destroy after a bit
         this.destroy();
     }
