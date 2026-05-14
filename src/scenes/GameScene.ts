@@ -361,14 +361,14 @@ export class GameScene extends Phaser.Scene {
         // Update heal objects visuals
         this.healGroup.forEach(obj => {
             const h = obj as HealObject;
-            const inCloud = this.clouds.some(c => c.isOverlapping(h.x, h.y));
+            const inCloud = this.clouds.some(c => h.body && c.isOverlapping(h.x, h.y));
             h.updateVisuals(inCloud);
         });
 
         // Update walls
         this.wallGroup.forEach(obj => {
             const w = obj as Wall;
-            const inCloud = this.clouds.some(c => c.isOverlapping(w.x, w.y));
+            const inCloud = this.clouds.some(c => w.body && c.isOverlapping(w.x, w.y));
             w.update(time, inCloud);
         });
 
@@ -376,7 +376,7 @@ export class GameScene extends Phaser.Scene {
 
         // Update each unit
         for (const unit of this.unitGroup) {
-            const inCloud = this.clouds.some(cloud => cloud.isOverlapping(unit.x, unit.y));
+            const inCloud = this.clouds.some(cloud => unit.body && cloud.isOverlapping(unit.x, unit.y));
             unit.setCloudEffect(inCloud);
 
             // Conversion logic (very small chance every update)
@@ -395,7 +395,7 @@ export class GameScene extends Phaser.Scene {
         // Update buildings
         this.buildingGroup = this.buildingGroup.filter(b => b.active);
         for (const building of this.buildingGroup) {
-            const inCloud = this.clouds.some(cloud => cloud.isOverlapping(building.x, building.y));
+            const inCloud = this.clouds.some(cloud => building.body && cloud.isOverlapping(building.x, building.y));
             building.setCloudEffect(inCloud);
             building.update(time, inCloud);
         }
@@ -403,7 +403,7 @@ export class GameScene extends Phaser.Scene {
         // Update towers
         this.towerGroup = this.towerGroup.filter(t => t.active);
         for (const tower of this.towerGroup) {
-            const inCloud = this.clouds.some(cloud => cloud.isOverlapping(tower.x, tower.y));
+            const inCloud = this.clouds.some(cloud => tower.body && cloud.isOverlapping(tower.x, tower.y));
             tower.setCloudEffect(inCloud);
             tower.update(time, allEntities, inCloud);
         }
@@ -412,7 +412,7 @@ export class GameScene extends Phaser.Scene {
         this.healGroup = this.healGroup.filter(h => h.active);
         this.healGroup.forEach(obj => {
             const h = obj as HealObject;
-            const inCloud = this.clouds.some(c => c.isOverlapping(h.x, h.y));
+            const inCloud = this.clouds.some(c => h.body && c.isOverlapping(h.x, h.y));
             h.updateVisuals(inCloud);
         });
     }
