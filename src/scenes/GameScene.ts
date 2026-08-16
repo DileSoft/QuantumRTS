@@ -11,6 +11,7 @@ import { Factory } from '../entities/Factory';
 import { HealObject } from '../entities/HealObject';
 import { LaserTower } from '../entities/LaserTower';
 import { Wall } from '../entities/Wall';
+import { HQ } from '../entities/HQ';
 import { Economy } from '../systems/Economy';
 import { AiController, AiSceneApi } from '../ai/AiController';
 
@@ -21,12 +22,14 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     private healGroup: HealObject[] = [];
     private towerGroup: LaserTower[] = [];
     private wallGroup: Wall[] = [];
+    private hqGroup: HQ[] = [];
     private selectedEntities: BaseEntity[] = [];
     private clouds: ProbabilityCloud[] = [];
     private resourceFields: ResourceField[] = [];
     private economyBlue: Economy = new Economy(1);
     private economyRed: Economy = new Economy(2);
     private creditsHud: HTMLElement | null = null;
+    private gameOverFlag: boolean = false;
     private ai: AiController | null = null;
     private lastHealSpawn: number = 0;
     private lastTowerSpawn: number = 0;
@@ -38,7 +41,40 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         super('GameScene');
     }
 
+    /**
+     * init() вызывается перед create() при каждом старте/рестарте сцены.
+     * Сбрасываем все группы и флаги, чтобы рестарт работал чисто.
+     */
+    init() {
+        this.unitGroup = [];
+        this.harvesterGroup = [];
+        this.buildingGroup = [];
+        this.healGroup = [];
+        this.towerGroup = [];
+        this.wallGroup = [];
+        this.hqGroup = [];
+        this.selectedEntities = [];
+        this.clouds = [];
+        this.resourceFields = [];
+        this.economyBlue = new Economy(1);
+        this.economyRed = new Economy(2);
+        this.creditsHud = null;
+        this.gameOverFlag = false;
+        this.ai = null;
+        this.lastHealSpawn = 0;
+        this.lastTowerSpawn = 0;
+        this.isSelecting = false;
+        this.selectionStartPoint = new Phaser.Math.Vector2();
+
+        // Удаляем DOM-кнопки, созданные в предыдущем запуске (build-btn, produce-btn)
+        document.getElementById('build-btn')?.remove();
+        document.getElementById('produce-btn')?.remove();
+        document.getElementById('game-over-overlay')?.remove();
+    }
+
     public removeEntity(entity: Phaser.GameObjects.GameObject) {
+        if (this.gameOverFlag) return;
+
         if (entity instanceof BaseUnit) {
             this.unitGroup = this.unitGroup.filter(u => u !== entity);
             if (entity instanceof HarvesterUnit) {
@@ -50,6 +86,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             this.towerGroup = this.towerGroup.filter(t => t !== entity);
         } else if (entity instanceof Wall) {
             this.wallGroup = this.wallGroup.filter(w => w !== entity);
+        } else if (entity instanceof HQ) {
+            this.hqGroup = this.hqGroup.filter(h => h !== entity);
         } else if (entity instanceof HealObject) {
             this.healGroup = this.healGroup.filter(h => h !== entity);
         }
@@ -110,8 +148,31 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         });
 
         // Initial Builders
-        this.spawnBuilder(200, 300, 1, 0x3498db);
-        this.spawnBuilder(window.innerWidth - 200, 300, 2, 0xe74c3c);
+        // HQ синей команды (игрок, слева-сверху)
+        const hqBlue = new HQ({
+            scene: this,
+            x: 200,
+            y: 200,
+            team: 1,
+            color: 0x3498db,
+            onDestroyed: (team) => this.handleHqDestroyed(team)
+        });
+        this.hqGroup.push(hqBlue);
+
+        // HQ красной команды (ИИ, справа-сверху)
+        const hqRed = new HQ({
+            scene: this,
+            x: window.innerWidth - 200,
+            y: 200,
+            team: 2,
+            color: 0xe74c3c,
+            onDestroyed: (team) => this.handleHqDestroyed(team)
+        });
+        this.hqGroup.push(hqRed);
+
+        // Стартовые билдеры рядом с HQ
+        this.spawnBuilder(250, 280, 1, 0x3498db);
+        this.spawnBuilder(window.innerWidth - 250, 280, 2, 0xe74c3c);
 
         // ИИ противника (команда 2)
         this.ai = new AiController(this);
@@ -303,9 +364,14 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         return this.unitGroup.filter(u => u instanceof BuilderUnit && u.team === team && u.active) as BuilderUnit[];
     }
 
-    public getEnemyBasePosition(_team: number): { x: number; y: number } {
-        // Пока базы нет (Фаза 3) — атакуем стартовую позицию синей команды
-        return { x: 200, y: 300 };
+    public getEnemyBasePosition(team: number): { x: number; y: number } {
+        // Возвращаем позицию вражеского HQ (если есть)
+        const enemyHQ = this.hqGroup.find(h => h.team !== team && h.active && h.hp > 0);
+        if (enemyHQ) {
+            return { x: enemyHQ.x, y: enemyHQ.y };
+        }
+        // Fallback: стартовая позиция врага
+        return team === 1 ? { x: window.innerWidth - 200, y: 200 } : { x: 200, y: 200 };
     }
 
     public aiSpawnBuilder(x: number, y: number, team: number, color: number): void {
@@ -335,6 +401,46 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
     public aiGetCredits(team: number): number {
         return this.getEconomy(team).getCredits();
+    }
+
+    /**
+     * Обработчик разрушения HQ.
+     */
+    private handleHqDestroyed(team: number) {
+        if (this.gameOverFlag) return;
+        this.gameOverFlag = true;
+
+        const winner = team === 1 ? 2 : 1;
+        const isPlayerWin = winner === 1;
+        const message = isPlayerWin ? '🔵 ПОБЕДА! Синие уничтожили базу врага' : '🔴 ПОРАЖЕНИЕ! Ваша база уничтожена';
+
+        // Создаём оверлей
+        const overlay = document.createElement('div');
+        overlay.id = 'game-over-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            color: white;
+            font-family: sans-serif;
+        `;
+        overlay.innerHTML = `
+            <h1 style="font-size: 64px; margin-bottom: 20px;">${message}</h1>
+            <button id="restart-btn" style="padding: 15px 40px; font-size: 24px; cursor: pointer;
+                background: #444; color: white; border: 2px solid #888; border-radius: 8px;">
+                Играть снова
+            </button>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('restart-btn')?.addEventListener('click', () => {
+            this.scene.restart();
+        });
     }
 
     private spawnBuilder(x: number, y: number, team: number, color: number) {
@@ -372,6 +478,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     }
 
     private handleSelection(pointer: Phaser.Input.Pointer) {
+        if (this.gameOverFlag) return;
+
         // Clear previous selection
         this.selectedEntities.forEach(e => e.setSelected(false));
         this.selectedEntities = [];
@@ -384,9 +492,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         const selectionRect = new Phaser.Geom.Rectangle(x1, y1, x2 - x1, y2 - y1);
         const isSingleClick = selectionRect.width < 5 && selectionRect.height < 5;
 
-        // Check units
+        // Check units (только свои)
         this.unitGroup.forEach(unit => {
-            if (!unit.active) return;
+            if (!unit.active || unit.team !== 1) return;
             
             if (isSingleClick) {
                 if (Phaser.Math.Distance.Between(pointer.x, pointer.y, unit.x, unit.y) < 40) {
@@ -399,10 +507,10 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             }
         });
 
-        // Check buildings (only if no units selected or it was a click)
+        // Check buildings (только свои)
         if (this.selectedEntities.length === 0 || isSingleClick) {
             this.buildingGroup.forEach(b => {
-                if (!b.active) return;
+                if (!b.active || b.team !== 1) return;
                 
                 if (isSingleClick) {
                     if (Phaser.Math.Distance.Between(pointer.x, pointer.y, b.x, b.y) < 50) {
@@ -430,6 +538,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     }
 
     private handleRightClick(pointer: Phaser.Input.Pointer) {
+        if (this.gameOverFlag) return;
         this.selectedEntities.forEach(entity => {
             if (entity instanceof BaseUnit && entity.active) {
                 entity.setTargetPosition(pointer.x, pointer.y);
@@ -438,6 +547,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     }
 
     update(time: number, delta: number) {
+        if (this.gameOverFlag) return;
+
         // Экономика: пассивный доход
         this.economyBlue.update(delta);
         this.economyRed.update(delta);
