@@ -12,8 +12,9 @@ import { HealObject } from '../entities/HealObject';
 import { LaserTower } from '../entities/LaserTower';
 import { Wall } from '../entities/Wall';
 import { Economy } from '../systems/Economy';
+import { AiController, AiSceneApi } from '../ai/AiController';
 
-export class GameScene extends Phaser.Scene {
+export class GameScene extends Phaser.Scene implements AiSceneApi {
     private unitGroup: BaseUnit[] = [];
     private harvesterGroup: HarvesterUnit[] = [];
     private buildingGroup: Factory[] = [];
@@ -26,6 +27,7 @@ export class GameScene extends Phaser.Scene {
     private economyBlue: Economy = new Economy(1);
     private economyRed: Economy = new Economy(2);
     private creditsHud: HTMLElement | null = null;
+    private ai: AiController | null = null;
     private lastHealSpawn: number = 0;
     private lastTowerSpawn: number = 0;
     private selectionRect!: Phaser.GameObjects.Rectangle;
@@ -110,6 +112,9 @@ export class GameScene extends Phaser.Scene {
         // Initial Builders
         this.spawnBuilder(200, 300, 1, 0x3498db);
         this.spawnBuilder(window.innerWidth - 200, 300, 2, 0xe74c3c);
+
+        // ИИ противника (команда 2)
+        this.ai = new AiController(this);
 
         // Create Probability Clouds
         for (let i = 0; i < 4; i++) {
@@ -284,6 +289,54 @@ export class GameScene extends Phaser.Scene {
         return team === 1 ? this.economyBlue : this.economyRed;
     }
 
+    // ===== Публичный API для ИИ (AiSceneApi) =====
+
+    public getTeamUnits(team: number): BaseUnit[] {
+        return this.unitGroup.filter(u => u.team === team && u.active);
+    }
+
+    public getTeamFactories(team: number): Factory[] {
+        return this.buildingGroup.filter(b => b.team === team && b.active);
+    }
+
+    public getTeamBuilders(team: number): BuilderUnit[] {
+        return this.unitGroup.filter(u => u instanceof BuilderUnit && u.team === team && u.active) as BuilderUnit[];
+    }
+
+    public getEnemyBasePosition(_team: number): { x: number; y: number } {
+        // Пока базы нет (Фаза 3) — атакуем стартовую позицию синей команды
+        return { x: 200, y: 300 };
+    }
+
+    public aiSpawnBuilder(x: number, y: number, team: number, color: number): void {
+        this.spawnBuilder(x, y, team, color);
+    }
+
+    public aiSpawnHarvester(x: number, y: number, team: number, color: number): void {
+        this.spawnHarvester(x, y, team, color);
+    }
+
+    public aiCreateFactory(x: number, y: number, team: number, color: number): boolean {
+        // Требуем ресурсы ДО создания (в отличие от createFactory через билдера)
+        if (!this.getEconomy(team).spend(CONFIG.costs.factory)) {
+            return false;
+        }
+        this.createFactoryAt(x, y, team, color);
+        return true;
+    }
+
+    public aiStartProduction(factory: Factory): void {
+        factory.startProduction();
+    }
+
+    public aiOrderAttack(_factory: Factory): void {
+        // В этом ИИ атака идёт напрямую через orderAttack — метод-заглушка
+    }
+
+    public aiGetCredits(team: number): number {
+        return this.getEconomy(team).getCredits();
+    }
+
     private spawnBuilder(x: number, y: number, team: number, color: number) {
         const builder = new BuilderUnit({
             scene: this,
@@ -302,6 +355,10 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
+        this.createFactoryAt(x, y, team, color);
+    }
+
+    private createFactoryAt(x: number, y: number, team: number, color: number) {
         const factory = new Factory({
             scene: this,
             x,
@@ -384,6 +441,9 @@ export class GameScene extends Phaser.Scene {
         // Экономика: пассивный доход
         this.economyBlue.update(delta);
         this.economyRed.update(delta);
+
+        // ИИ противника
+        this.ai?.update(time);
 
         // HUD: кредиты команд
         if (this.creditsHud) {
