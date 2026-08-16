@@ -243,6 +243,13 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // Prevent context menu on right click
         this.input.mouse?.disableContextMenu();
 
+        // Пауза по Esc
+        this.input.keyboard?.on('keydown-ESC', () => {
+            if (this.gameOverFlag) return;
+            this.scene.pause();
+            this.scene.launch('PauseScene');
+        });
+
         // Matter collisions for picking up heal objects
         this.matter.world.on('collisionstart', (event: any) => {
             event.pairs.forEach((pair: any) => {
