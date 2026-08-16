@@ -14,6 +14,7 @@ import { Wall } from '../entities/Wall';
 import { HQ } from '../entities/HQ';
 import { Economy } from '../systems/Economy';
 import { AiController, AiSceneApi } from '../ai/AiController';
+import { Tooltip } from '../ui/Tooltip';
 
 export class GameScene extends Phaser.Scene implements AiSceneApi {
     private unitGroup: BaseUnit[] = [];
@@ -29,6 +30,10 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     private economyBlue: Economy = new Economy(1);
     private economyRed: Economy = new Economy(2);
     private creditsHud: HTMLElement | null = null;
+    private tooltip: Tooltip | null = null;
+    private spawnHarvesterBtn: HTMLButtonElement | null = null;
+    private buildBtn: HTMLButtonElement | null = null;
+    private produceBtn: HTMLButtonElement | null = null;
     private gameOverFlag: boolean = false;
     private ai: AiController | null = null;
     private lastHealSpawn: number = 0;
@@ -59,6 +64,10 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         this.economyBlue = new Economy(1);
         this.economyRed = new Economy(2);
         this.creditsHud = null;
+        this.tooltip = null;
+        this.spawnHarvesterBtn = null;
+        this.buildBtn = null;
+        this.produceBtn = null;
         this.gameOverFlag = false;
         this.ai = null;
         this.lastHealSpawn = 0;
@@ -120,13 +129,17 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // HUD: кредиты команд (DOM — поверх канваса)
         this.creditsHud = document.getElementById('credits-hud');
 
+        // Tooltip при наведении
+        this.tooltip = new Tooltip(this);
+
         // UI Setup
-        document.getElementById('spawn-harvester')?.addEventListener('click', () => this.spawnHarvester(null, null, 1, 0x3498db));
+        this.spawnHarvesterBtn = document.getElementById('spawn-harvester') as HTMLButtonElement | null;
+        this.spawnHarvesterBtn?.addEventListener('click', () => this.spawnHarvester(null, null, 1, 0x3498db));
         
         // Build button
         const buildBtn = document.createElement('button');
         buildBtn.id = 'build-btn';
-        buildBtn.innerText = 'Build Factory (Select Builder)';
+        buildBtn.innerText = `Build Factory (${CONFIG.costs.factory})`;
         buildBtn.style.display = 'none';
         document.getElementById('controls')?.appendChild(buildBtn);
         buildBtn.addEventListener('click', () => {
@@ -134,11 +147,12 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
                 if (e instanceof BuilderUnit) e.build();
             });
         });
+        this.buildBtn = buildBtn;
 
         // Produce Tank button
         const produceBtn = document.createElement('button');
         produceBtn.id = 'produce-btn';
-        produceBtn.innerText = 'Produce Tank (Select Factory)';
+        produceBtn.innerText = `Produce Tank (${CONFIG.costs.tank})`;
         produceBtn.style.display = 'none';
         document.getElementById('controls')?.appendChild(produceBtn);
         produceBtn.addEventListener('click', () => {
@@ -146,6 +160,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
                 if (e instanceof Factory) e.startProduction();
             });
         });
+        this.produceBtn = produceBtn;
 
         // Initial Builders
         // HQ синей команды (игрок, слева-сверху)
@@ -210,6 +225,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
                 const height = pointer.y - this.selectionStartPoint.y;
                 this.selectionRect.setSize(width, height);
             }
+
+            // Tooltip при наведении на объекты
+            this.updateTooltip(pointer.x, pointer.y);
         });
 
         this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
@@ -561,6 +579,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             this.creditsHud.innerText = `🔵 ${this.economyBlue.getCredits()}   🔴 ${this.economyRed.getCredits()}`;
         }
 
+        // Обновляем доступность кнопок по ресурсам игрока (команда 1)
+        this.updateButtonsAvailability();
+
         // Spawn heal objects
         if (time > this.lastHealSpawn + 1000) {
             this.lastHealSpawn = time;
@@ -660,5 +681,173 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             const inCloud = this.clouds.some(c => h.body && c.isOverlapping(h.x, h.y));
             h.updateVisuals(inCloud);
         });
+    }
+
+    /**
+     * Показываем tooltip при наведении на объекты.
+     * Проверяем все группы: юниты, постройки, жилы, облака.
+     */
+    private updateTooltip(x: number, y: number) {
+        if (!this.tooltip) return;
+
+        let hovered: { x: number; y: number; lines: string[] } | null = null;
+
+        // Юниты (ближайший в радиусе 30)
+        for (const unit of this.unitGroup) {
+            if (!unit.active) continue;
+            const dist = Phaser.Math.Distance.Between(x, y, unit.x, unit.y);
+            if (dist < 30) {
+                const lines = this.getUnitTooltip(unit);
+                if (lines) hovered = { x: unit.x, y: unit.y, lines };
+                break;
+            }
+        }
+
+        // Постройки (фабрики, HQ)
+        if (!hovered) {
+            for (const b of this.buildingGroup) {
+                if (!b.active) continue;
+                const dist = Phaser.Math.Distance.Between(x, y, b.x, b.y);
+                if (dist < 50) {
+                    hovered = {
+                        x: b.x, y: b.y,
+                        lines: [
+                            `Фабрика (Команда ${b.team === 1 ? '1 🔵' : '2 🔴'})`,
+                            `HP: ${Math.max(0, Math.round(b.hp))}/${b.maxHp}`,
+                            `Производство: ${b.isProducing() ? 'Активно' : 'Ожидание'}`
+                        ]
+                    };
+                    break;
+                }
+            }
+        }
+
+        if (!hovered) {
+            for (const hq of this.hqGroup) {
+                if (!hq.active) continue;
+                const dist = Phaser.Math.Distance.Between(x, y, hq.x, hq.y);
+                if (dist < 60) {
+                    hovered = {
+                        x: hq.x, y: hq.y,
+                        lines: [
+                            `Командный центр (Команда ${hq.team === 1 ? '1 🔵' : '2 🔴'})`,
+                            `HP: ${Math.max(0, Math.round(hq.hp))}/${hq.maxHp}`,
+                            'Уничтожьте HQ врага для победы!'
+                        ]
+                    };
+                    break;
+                }
+            }
+        }
+
+        // Квантовые жилы
+        if (!hovered) {
+            for (const field of this.resourceFields) {
+                if (!field.active) continue;
+                const dist = Phaser.Math.Distance.Between(x, y, field.x, field.y);
+                if (dist < field.radius) {
+                    hovered = {
+                        x: field.x, y: field.y,
+                        lines: [
+                            'Квантовая жила',
+                            `Зона добычи: ${field.radius}`,
+                            'Поставьте харвестер рядом для добычи'
+                        ]
+                    };
+                    break;
+                }
+            }
+        }
+
+        // Облака вероятности
+        if (!hovered) {
+            for (const cloud of this.clouds) {
+                if (cloud.isOverlapping(x, y)) {
+                    hovered = {
+                        x: cloud.x, y: cloud.y,
+                        lines: [
+                            'Облако вероятности',
+                            'Буст добычи ×2',
+                            'Риск сбоя (25%)',
+                            'Ускорение производства'
+                        ]
+                    };
+                    break;
+                }
+            }
+        }
+
+        if (hovered) {
+            this.tooltip.show(x, y, hovered.lines);
+        } else {
+            this.tooltip.hide();
+        }
+    }
+
+    /**
+     * Параметры юнита для tooltip.
+     */
+    private getUnitTooltip(unit: BaseUnit): string[] | null {
+        const teamStr = unit.team === 1 ? '1 🔵' : '2 🔴';
+        const hpLine = `HP: ${Math.max(0, Math.round(unit.hp))}/${unit.maxHp}`;
+
+        if (unit instanceof TankUnit) {
+            return [
+                'Танк',
+                `Команда: ${teamStr}`,
+                hpLine,
+                `Урон: 10 | Скорость: ${unit.getSpeed()}`
+            ];
+        }
+        if (unit instanceof HarvesterUnit) {
+            return [
+                'Харвестер',
+                `Команда: ${teamStr}`,
+                hpLine,
+                `Скорость: ${unit.getSpeed()}`,
+                'Добывает ресурсы у квантовых жил'
+            ];
+        }
+        if (unit instanceof BuilderUnit) {
+            return [
+                'Строитель',
+                `Команда: ${teamStr}`,
+                hpLine,
+                'Строит фабрики'
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * Подсвечиваем кнопки в зависимости от наличия ресурсов у игрока (команда 1).
+     */
+    private updateButtonsAvailability() {
+        const credits = this.economyBlue.getCredits();
+
+        // Spawn Harvester
+        if (this.spawnHarvesterBtn) {
+            const affordable = credits >= CONFIG.costs.harvester;
+            this.spawnHarvesterBtn.disabled = !affordable;
+            this.spawnHarvesterBtn.style.opacity = affordable ? '1' : '0.5';
+            this.spawnHarvesterBtn.style.background = affordable ? '#444' : '#333';
+            this.spawnHarvesterBtn.style.borderColor = affordable ? '#666' : '#a33';
+        }
+
+        // Build Factory (видна только при выборе строителя)
+        if (this.buildBtn && this.buildBtn.style.display !== 'none') {
+            const affordable = credits >= CONFIG.costs.factory;
+            this.buildBtn.disabled = !affordable;
+            this.buildBtn.style.opacity = affordable ? '1' : '0.5';
+            this.buildBtn.style.borderColor = affordable ? '#666' : '#a33';
+        }
+
+        // Produce Tank (видна только при выборе фабрики)
+        if (this.produceBtn && this.produceBtn.style.display !== 'none') {
+            const affordable = credits >= CONFIG.costs.tank;
+            this.produceBtn.disabled = !affordable;
+            this.produceBtn.style.opacity = affordable ? '1' : '0.5';
+            this.produceBtn.style.borderColor = affordable ? '#666' : '#a33';
+        }
     }
 }

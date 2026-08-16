@@ -30,6 +30,13 @@ export abstract class BaseUnit extends BaseEntity {
         this.targetY = y;
     }
 
+    /**
+     * Скорость юнита (для UI/tooltip).
+     */
+    public getSpeed(): number {
+        return this.speed;
+    }
+
     public update(time: number, _delta: number) {
         if (this.hp <= 0) return;
 
