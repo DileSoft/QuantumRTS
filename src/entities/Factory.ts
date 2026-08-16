@@ -1,8 +1,10 @@
 import 'phaser';
 import { BaseBuilding, BuildingConfig } from './BaseBuilding';
+import { CONFIG } from '../config';
 
 export interface SpecificBuildingConfig extends BuildingConfig {
     onSpawnUnit: (x: number, y: number, team: number, color: number) => void;
+    onSpendResources: (amount: number) => boolean;
 }
 
 export class Factory extends BaseBuilding {
@@ -11,11 +13,13 @@ export class Factory extends BaseBuilding {
     private productionStartTime: number | null = null;
     private productionQueue: number = 0;
     private onSpawnUnit: (x: number, y: number, team: number, color: number) => void;
+    private onSpendResources: (amount: number) => boolean;
     private progressText: Phaser.GameObjects.Text;
 
     constructor(config: SpecificBuildingConfig) {
         super({ ...config, hp: 500 });
         this.onSpawnUnit = config.onSpawnUnit;
+        this.onSpendResources = config.onSpendResources;
 
         this.bodySprite = this.scene.add.rectangle(0, 0, 60, 60, this.color);
         this.bodySprite.setStrokeStyle(4, 0xffffff);
@@ -75,9 +79,15 @@ export class Factory extends BaseBuilding {
     }
 
     public startProduction() {
-        if (this.hp > 0) {
-            this.productionQueue++;
+        if (this.hp <= 0) return;
+
+        // Списываем ресурсы сразу при постановке в очередь
+        if (!this.onSpendResources(CONFIG.costs.tank)) {
+            console.warn('[Economy] Недостаточно кредитов для производства танка');
+            return;
         }
+
+        this.productionQueue++;
     }
 
     public isProducing(): boolean {

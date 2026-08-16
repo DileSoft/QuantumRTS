@@ -16,45 +16,19 @@
             width: 100vw;
             height: 100vh;
         }
-        #ui-layer {
+        #credits-hud {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            pointer-events: none;
-            display: flex;
-            gap: 10px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            pointer-events: auto;
-            background: #444;
-            color: white;
-            border: 1px solid #666;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 8px 14px;
             border-radius: 4px;
+            font-size: 18px;
+            font-weight: bold;
+            pointer-events: none;
+            font-family: sans-serif;
         }
-        button:hover {
-            background: #555;
-        }
-    </style>
-</head>
-<body>
-    <div id="game-container"></div>
-    <div id="ui-layer">
-        <div id="controls">
-            <button id="spawn-blue">Spawn Blue (Team 1)</button>
-            <button id="spawn-red">Spawn Red (Team 2)</button>
-        </div>
-        <div id="instructions">
-            ЛКМ (Левая кнопка): Выбрать юнита<br>
-            ПКМ (Правая кнопка): Двигаться в точку
-        </div>
-    </div>
-    <script type="module" src="/src/main.ts"></script>
-</body>
-</html>
-    <style>
         #ui-layer {
             position: absolute;
             top: 20px;
@@ -91,3 +65,21 @@
             background: #555;
         }
     </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <div id="credits-hud"></div>
+    <div id="ui-layer">
+        <div id="controls">
+            <button id="spawn-harvester">Spawn Harvester (75)</button>
+        </div>
+        <div id="instructions">
+            ЛКМ (Левая кнопка): Выбрать юнита<br>
+            ПКМ (Правая кнопка): Двигаться в точку<br>
+            Жёлтые поля — квантовые жилы. Харвестер добывает рядом с ними.<br>
+            Фиолетовые облака — вероятность: буст добычи и риск сбоя.
+        </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

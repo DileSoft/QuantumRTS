@@ -1,22 +1,31 @@
 import 'phaser';
+import { CONFIG } from '../config';
 import { BaseEntity } from '../entities/BaseEntity';
 import { BaseUnit } from '../entities/BaseUnit';
 import { TankUnit } from '../entities/TankUnit';
 import { BuilderUnit } from '../entities/BuilderUnit';
+import { HarvesterUnit } from '../entities/HarvesterUnit';
 import { ProbabilityCloud } from '../entities/ProbabilityCloud';
+import { ResourceField } from '../entities/ResourceField';
 import { Factory } from '../entities/Factory';
 import { HealObject } from '../entities/HealObject';
 import { LaserTower } from '../entities/LaserTower';
 import { Wall } from '../entities/Wall';
+import { Economy } from '../systems/Economy';
 
 export class GameScene extends Phaser.Scene {
     private unitGroup: BaseUnit[] = [];
+    private harvesterGroup: HarvesterUnit[] = [];
     private buildingGroup: Factory[] = [];
     private healGroup: HealObject[] = [];
     private towerGroup: LaserTower[] = [];
     private wallGroup: Wall[] = [];
     private selectedEntities: BaseEntity[] = [];
     private clouds: ProbabilityCloud[] = [];
+    private resourceFields: ResourceField[] = [];
+    private economyBlue: Economy = new Economy(1);
+    private economyRed: Economy = new Economy(2);
+    private creditsHud: HTMLElement | null = null;
     private lastHealSpawn: number = 0;
     private lastTowerSpawn: number = 0;
     private selectionRect!: Phaser.GameObjects.Rectangle;
@@ -30,6 +39,9 @@ export class GameScene extends Phaser.Scene {
     public removeEntity(entity: Phaser.GameObjects.GameObject) {
         if (entity instanceof BaseUnit) {
             this.unitGroup = this.unitGroup.filter(u => u !== entity);
+            if (entity instanceof HarvesterUnit) {
+                this.harvesterGroup = this.harvesterGroup.filter(h => h !== entity);
+            }
         } else if (entity instanceof Factory) {
             this.buildingGroup = this.buildingGroup.filter(b => b !== entity);
         } else if (entity instanceof LaserTower) {
@@ -58,9 +70,18 @@ export class GameScene extends Phaser.Scene {
         // Matter World Setup
         this.matter.world.setBounds(0, 0, window.innerWidth, window.innerHeight);
 
+        // Квантовые жилы ресурсов
+        for (let i = 0; i < CONFIG.resourceFields.count; i++) {
+            const rx = Phaser.Math.Between(150, window.innerWidth - 150);
+            const ry = Phaser.Math.Between(150, window.innerHeight - 150);
+            this.resourceFields.push(new ResourceField(this, rx, ry));
+        }
+
+        // HUD: кредиты команд (DOM — поверх канваса)
+        this.creditsHud = document.getElementById('credits-hud');
+
         // UI Setup
-        document.getElementById('spawn-blue')?.addEventListener('click', () => this.spawnTank(null, null, 1, 0x3498db));
-        document.getElementById('spawn-red')?.addEventListener('click', () => this.spawnTank(null, null, 2, 0xe74c3c));
+        document.getElementById('spawn-harvester')?.addEventListener('click', () => this.spawnHarvester(null, null, 1, 0x3498db));
         
         // Build button
         const buildBtn = document.createElement('button');
@@ -219,7 +240,12 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    private spawnTank(x: number | null, y: number | null, team: number, color: number) {
+    private spawnTank(x: number | null, y: number | null, team: number, color: number, free: boolean = false) {
+        if (!free && !this.getEconomy(team).spend(CONFIG.costs.tank)) {
+            console.warn(`[Economy] Недостаточно кредитов для танка (team ${team})`);
+            return;
+        }
+
         let actualX = x ?? Phaser.Math.Between(100, window.innerWidth - 100);
         let actualY = y ?? Phaser.Math.Between(100, window.innerHeight - 100);
 
@@ -231,6 +257,31 @@ export class GameScene extends Phaser.Scene {
             color
         });
         this.unitGroup.push(tank);
+    }
+
+    private spawnHarvester(x: number | null, y: number | null, team: number, color: number) {
+        if (!this.getEconomy(team).spend(CONFIG.costs.harvester)) {
+            console.warn(`[Economy] Недостаточно кредитов для харвестера (team ${team})`);
+            return;
+        }
+
+        const actualX = x ?? Phaser.Math.Between(100, window.innerWidth - 100);
+        const actualY = y ?? Phaser.Math.Between(100, window.innerHeight - 100);
+
+        const harvester = new HarvesterUnit({
+            scene: this,
+            x: actualX,
+            y: actualY,
+            team,
+            color,
+            onHarvest: (amount) => this.getEconomy(team).add(amount)
+        });
+        this.unitGroup.push(harvester);
+        this.harvesterGroup.push(harvester);
+    }
+
+    public getEconomy(team: number): Economy {
+        return team === 1 ? this.economyBlue : this.economyRed;
     }
 
     private spawnBuilder(x: number, y: number, team: number, color: number) {
@@ -246,13 +297,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     private createFactory(x: number, y: number, team: number, color: number) {
+        if (!this.getEconomy(team).spend(CONFIG.costs.factory)) {
+            console.warn(`[Economy] Недостаточно кредитов для фабрики (team ${team})`);
+            return;
+        }
+
         const factory = new Factory({
             scene: this,
             x,
             y,
             team,
             color,
-            onSpawnUnit: (ux, uy, ut, uc) => this.spawnTank(ux, uy, ut, uc)
+            onSpawnUnit: (ux, uy, ut, uc) => this.spawnTank(ux, uy, ut, uc, true),
+            onSpendResources: (amount) => this.getEconomy(team).spend(amount)
         });
         this.buildingGroup.push(factory);
     }
@@ -324,6 +381,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     update(time: number, delta: number) {
+        // Экономика: пассивный доход
+        this.economyBlue.update(delta);
+        this.economyRed.update(delta);
+
+        // HUD: кредиты команд
+        if (this.creditsHud) {
+            this.creditsHud.innerText = `🔵 ${this.economyBlue.getCredits()}   🔴 ${this.economyRed.getCredits()}`;
+        }
+
         // Spawn heal objects
         if (time > this.lastHealSpawn + 1000) {
             this.lastHealSpawn = time;
@@ -390,6 +456,14 @@ export class GameScene extends Phaser.Scene {
             } else {
                 unit.update(time, delta);
             }
+        }
+
+        // Update harvesters
+        this.harvesterGroup = this.harvesterGroup.filter(h => h.active);
+        for (const harvester of this.harvesterGroup) {
+            const inCloud = this.clouds.some(cloud => harvester.body && cloud.isOverlapping(harvester.x, harvester.y));
+            harvester.setCloudEffect(inCloud);
+            harvester.updateHarvest(time, delta, this.resourceFields, this.clouds);
         }
 
         // Update buildings
