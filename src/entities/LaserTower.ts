@@ -4,10 +4,10 @@ import { BaseEntity } from './BaseEntity';
 export class LaserTower extends BaseEntity {
     private bodySprite: Phaser.GameObjects.Rectangle;
     private turretSprite: Phaser.GameObjects.Rectangle;
-    private attackRange: number = 250;
+    public attackRange: number = 250;
     private lastFired: number = 0;
     private fireRate: number = 1500;
-    private isHealingMode: boolean = false;
+    public isHealingMode: boolean = false;
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         super({

@@ -747,6 +747,49 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             }
         }
 
+        // Лазерные башни
+        if (!hovered) {
+            for (const tower of this.towerGroup) {
+                if (!tower.active) continue;
+                const dist = Phaser.Math.Distance.Between(x, y, tower.x, tower.y);
+                if (dist < 45) {
+                    hovered = {
+                        x: tower.x, y: tower.y,
+                        lines: [
+                            'Лазерная башня (Нейтральная)',
+                            `HP: ${Math.max(0, Math.round(tower.hp))}/${tower.maxHp}`,
+                            tower.isHealingMode
+                                ? 'Режим: ⚕ Лечение (в облаке)'
+                                : 'Режим: ⚔ Атака',
+                            `Радиус: ${tower.attackRange}`
+                        ]
+                    };
+                    break;
+                }
+            }
+        }
+
+        // Стены
+        if (!hovered) {
+            for (const wall of this.wallGroup) {
+                if (!wall.active) continue;
+                const dist = Phaser.Math.Distance.Between(x, y, wall.x, wall.y);
+                if (dist < 45) {
+                    hovered = {
+                        x: wall.x, y: wall.y,
+                        lines: [
+                            'Стена (Нейтральная)',
+                            wall.isFaded
+                                ? 'Состояние: ✨ Исчезла (не блокирует)'
+                                : 'Состояние: активна (блокирует)',
+                            'Может случайно исчезать и появляться'
+                        ]
+                    };
+                    break;
+                }
+            }
+        }
+
         // Квантовые жилы
         if (!hovered) {
             for (const field of this.resourceFields) {
@@ -777,6 +820,29 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
                             'Буст добычи ×2',
                             'Риск сбоя (25%)',
                             'Ускорение производства'
+                        ]
+                    };
+                    break;
+                }
+            }
+        }
+
+        // Лечащие/вредящие артефакты
+        if (!hovered) {
+            for (const heal of this.healGroup) {
+                if (!heal.active) continue;
+                const dist = Phaser.Math.Distance.Between(x, y, heal.x, heal.y);
+                if (dist < 20) {
+                    hovered = {
+                        x: heal.x, y: heal.y,
+                        lines: [
+                            heal.isHealing
+                                ? 'Квантовый артефакт (⚕ Лечит)'
+                                : 'Квантовый артефакт (☠ Опасен!)',
+                            heal.isHealing
+                                ? 'Соберите юнитом: +25 HP'
+                                : 'В облаке стал вредным: −15 HP',
+                            'Исчезает после сбора'
                         ]
                     };
                     break;
