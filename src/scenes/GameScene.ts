@@ -42,8 +42,26 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     private isSelecting: boolean = false;
     private selectionStartPoint: Phaser.Math.Vector2 = new Phaser.Math.Vector2();
 
+    // Размеры мира (больше экрана — камера прокручивается)
+    private worldWidth: number = 0;
+    private worldHeight: number = 0;
+
     constructor() {
         super('GameScene');
+    }
+
+    /**
+     * Ширина игрового мира.
+     */
+    public getWorldWidth(): number {
+        return this.worldWidth;
+    }
+
+    /**
+     * Высота игрового мира.
+     */
+    public getWorldHeight(): number {
+        return this.worldHeight;
     }
 
     /**
@@ -107,23 +125,31 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     }
 
     create() {
-        // Background
+        // Размеры мира: 3x экрана
+        this.worldWidth = window.innerWidth * CONFIG.world.scaleFactor;
+        this.worldHeight = window.innerHeight * CONFIG.world.scaleFactor;
+
+        // Background — на весь мир
         this.add.grid(
-            window.innerWidth / 2, 
-            window.innerHeight / 2, 
-            window.innerWidth * 2, 
-            window.innerHeight * 2, 
+            this.worldWidth / 2,
+            this.worldHeight / 2,
+            this.worldWidth,
+            this.worldHeight,
             64, 64, 0x333333
         ).setAltFillStyle(0x2a2a2a).setOutlineStyle();
-        
-        // Matter World Setup
-        this.matter.world.setBounds(0, 0, window.innerWidth, window.innerHeight);
+
+        // Matter World — границы мира
+        this.matter.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
+
+        // Камера: старт на синем HQ (игрок), границы прокрутки = границы мира
+        this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
+        this.cameras.main.centerOn(200, 200);
 
         // Квантовые жилы ресурсов
         for (let i = 0; i < CONFIG.resourceFields.count; i++) {
-            const rx = Phaser.Math.Between(150, window.innerWidth - 150);
-            const ry = Phaser.Math.Between(150, window.innerHeight - 150);
-            this.resourceFields.push(new ResourceField(this, rx, ry));
+            const rx = Phaser.Math.Between(150, this.worldWidth - 150);
+            const ry = Phaser.Math.Between(150, this.worldHeight - 150);
+            this.resourceFields.push(new ResourceField(this, rx, ry, this.worldWidth, this.worldHeight));
         }
 
         // HUD: кредиты команд (DOM — поверх канваса)
@@ -135,6 +161,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // UI Setup
         this.spawnHarvesterBtn = document.getElementById('spawn-harvester') as HTMLButtonElement | null;
         this.spawnHarvesterBtn?.addEventListener('click', () => this.spawnHarvester(null, null, 1, 0x3498db));
+
+        // Кнопка «🎯 База» — фокус камеры на синий HQ
+        document.getElementById('focus-base')?.addEventListener('click', () => this.focusOnBase());
         
         // Build button
         const buildBtn = document.createElement('button');
@@ -174,44 +203,44 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         });
         this.hqGroup.push(hqBlue);
 
-        // HQ красной команды (ИИ, справа-сверху)
+        // HQ красной команды (ИИ, справа-внизу мира)
         const hqRed = new HQ({
             scene: this,
-            x: window.innerWidth - 200,
-            y: 200,
+            x: this.worldWidth - 200,
+            y: this.worldHeight - 200,
             team: 2,
             color: 0xe74c3c,
             onDestroyed: (team) => this.handleHqDestroyed(team)
         });
         this.hqGroup.push(hqRed);
 
-        // Стартовые билдеры рядом с HQ
+        // Стартовые билдеры рядом с HQ (по углам мира)
         this.spawnBuilder(250, 280, 1, 0x3498db);
-        this.spawnBuilder(window.innerWidth - 250, 280, 2, 0xe74c3c);
+        this.spawnBuilder(this.worldWidth - 250, this.worldHeight - 280, 2, 0xe74c3c);
 
         // ИИ противника (команда 2)
         this.ai = new AiController(this);
 
         // Create Probability Clouds
         for (let i = 0; i < 4; i++) {
-            this.clouds.push(new ProbabilityCloud(this));
+            this.clouds.push(new ProbabilityCloud(this, this.worldWidth, this.worldHeight));
         }
 
         this.generateWalls();
 
-        // Selection Rectangle
+        // Selection Rectangle (в мировых координатах — следует за камерой)
         this.selectionRect = this.add.rectangle(0, 0, 0, 0, 0x00ff00, 0.2);
         this.selectionRect.setStrokeStyle(1, 0x00ff00);
         this.selectionRect.setOrigin(0, 0);
         this.selectionRect.setVisible(false);
         this.selectionRect.setDepth(1000);
 
-        // Input
+        // Input (в мировых координатах, чтобы камера не ломала клики)
         this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
             if (pointer.leftButtonDown()) {
                 this.isSelecting = true;
-                this.selectionStartPoint.set(pointer.x, pointer.y);
-                this.selectionRect.setPosition(pointer.x, pointer.y);
+                this.selectionStartPoint.set(pointer.worldX, pointer.worldY);
+                this.selectionRect.setPosition(pointer.worldX, pointer.worldY);
                 this.selectionRect.setSize(0, 0);
                 this.selectionRect.setVisible(true);
             } else if (pointer.rightButtonDown()) {
@@ -221,13 +250,13 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
         this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
             if (this.isSelecting) {
-                const width = pointer.x - this.selectionStartPoint.x;
-                const height = pointer.y - this.selectionStartPoint.y;
+                const width = pointer.worldX - this.selectionStartPoint.x;
+                const height = pointer.worldY - this.selectionStartPoint.y;
                 this.selectionRect.setSize(width, height);
             }
 
             // Tooltip при наведении на объекты
-            this.updateTooltip(pointer.x, pointer.y);
+            this.updateTooltip(pointer);
         });
 
         this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
@@ -281,7 +310,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
     private generateWalls() {
         const numWalls = 10;
-        const maxLen = window.innerWidth / 2;
+        const maxLen = this.worldWidth / 2;
         let createdCount = 0;
         let attempts = 0;
 
@@ -290,8 +319,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             const length = Phaser.Math.Between(100, maxLen);
             const thickness = 20;
             
-            const x = Phaser.Math.Between(100, window.innerWidth - 100);
-            const y = Phaser.Math.Between(100, window.innerHeight - 100);
+            const x = Phaser.Math.Between(100, this.worldWidth - 100);
+            const y = Phaser.Math.Between(100, this.worldHeight - 100);
             const angle = Phaser.Math.FloatBetween(0, Math.PI); // Random angle in radians
 
             // Create a temporary Matter body to check for overlaps
@@ -337,8 +366,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             return;
         }
 
-        let actualX = x ?? Phaser.Math.Between(100, window.innerWidth - 100);
-        let actualY = y ?? Phaser.Math.Between(100, window.innerHeight - 100);
+        let actualX = x ?? Phaser.Math.Between(100, this.worldWidth - 100);
+        let actualY = y ?? Phaser.Math.Between(100, this.worldHeight - 100);
 
         const tank = new TankUnit({
             scene: this,
@@ -356,8 +385,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             return;
         }
 
-        const actualX = x ?? Phaser.Math.Between(100, window.innerWidth - 100);
-        const actualY = y ?? Phaser.Math.Between(100, window.innerHeight - 100);
+        const actualX = x ?? Phaser.Math.Between(100, this.worldWidth - 100);
+        const actualY = y ?? Phaser.Math.Between(100, this.worldHeight - 100);
 
         const harvester = new HarvesterUnit({
             scene: this,
@@ -396,7 +425,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             return { x: enemyHQ.x, y: enemyHQ.y };
         }
         // Fallback: стартовая позиция врага
-        return team === 1 ? { x: window.innerWidth - 200, y: 200 } : { x: 200, y: 200 };
+        return team === 1 ? { x: this.worldWidth - 200, y: this.worldHeight - 200 } : { x: 200, y: 200 };
     }
 
     public aiSpawnBuilder(x: number, y: number, team: number, color: number): void {
@@ -509,10 +538,10 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         this.selectedEntities.forEach(e => e.setSelected(false));
         this.selectedEntities = [];
 
-        const x1 = Math.min(this.selectionStartPoint.x, pointer.x);
-        const y1 = Math.min(this.selectionStartPoint.y, pointer.y);
-        const x2 = Math.max(this.selectionStartPoint.x, pointer.x);
-        const y2 = Math.max(this.selectionStartPoint.y, pointer.y);
+        const x1 = Math.min(this.selectionStartPoint.x, pointer.worldX);
+        const y1 = Math.min(this.selectionStartPoint.y, pointer.worldY);
+        const x2 = Math.max(this.selectionStartPoint.x, pointer.worldX);
+        const y2 = Math.max(this.selectionStartPoint.y, pointer.worldY);
         
         const selectionRect = new Phaser.Geom.Rectangle(x1, y1, x2 - x1, y2 - y1);
         const isSingleClick = selectionRect.width < 5 && selectionRect.height < 5;
@@ -522,7 +551,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             if (!unit.active || unit.team !== 1) return;
             
             if (isSingleClick) {
-                if (Phaser.Math.Distance.Between(pointer.x, pointer.y, unit.x, unit.y) < 40) {
+                if (Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, unit.x, unit.y) < 40) {
                     this.selectedEntities.push(unit);
                 }
             } else {
@@ -538,7 +567,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
                 if (!b.active || b.team !== 1) return;
                 
                 if (isSingleClick) {
-                    if (Phaser.Math.Distance.Between(pointer.x, pointer.y, b.x, b.y) < 50) {
+                    if (Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, b.x, b.y) < 50) {
                         this.selectedEntities.push(b);
                     }
                 } else {
@@ -566,7 +595,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         if (this.gameOverFlag) return;
         this.selectedEntities.forEach(entity => {
             if (entity instanceof BaseUnit && entity.active) {
-                entity.setTargetPosition(pointer.x, pointer.y);
+                entity.setTargetPosition(pointer.worldX, pointer.worldY);
             }
         });
     }
@@ -589,13 +618,16 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // Обновляем доступность кнопок по ресурсам игрока (команда 1)
         this.updateButtonsAvailability();
 
+        // Прокрутка камеры: края экрана + клавиши WASD/стрелки
+        this.handleCameraScroll(delta);
+
         // Spawn heal objects
         if (time > this.lastHealSpawn + 1000) {
             this.lastHealSpawn = time;
             
-            // Random position
-            const rx = Phaser.Math.Between(50, window.innerWidth - 50);
-            const ry = Phaser.Math.Between(50, window.innerHeight - 50);
+            // Random position (по всему миру)
+            const rx = Phaser.Math.Between(50, this.worldWidth - 50);
+            const ry = Phaser.Math.Between(50, this.worldHeight - 50);
             
             // Check if cloud is over spawn point to increase probability
             const cloudOverSpawn = this.clouds.some(c => c.isOverlapping(rx, ry));
@@ -610,8 +642,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // Spawn laser towers
         if (time > this.lastTowerSpawn + 5000) { // Every 5 seconds check
             this.lastTowerSpawn = time;
-            const rx = Phaser.Math.Between(100, window.innerWidth - 100);
-            const ry = Phaser.Math.Between(100, window.innerHeight - 100);
+            const rx = Phaser.Math.Between(100, this.worldWidth - 100);
+            const ry = Phaser.Math.Between(100, this.worldHeight - 100);
             
             // Check cloud influence
             const cloudOverSpawn = this.clouds.some(c => c.isOverlapping(rx, ry));
@@ -692,32 +724,37 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
     /**
      * Показываем tooltip при наведении на объекты.
-     * Проверяем все группы: юниты, постройки, жилы, облака.
+     * Поиск объекта — в мировых координатах; показ тултипа — в экранных
+     * (тултип имеет setScrollFactor(0), поэтому привязан к экрану).
      */
-    private updateTooltip(x: number, y: number) {
+    private updateTooltip(pointer: Phaser.Input.Pointer) {
         if (!this.tooltip) return;
 
-        let hovered: { x: number; y: number; lines: string[] } | null = null;
+        const wx = pointer.worldX;
+        const wy = pointer.worldY;
+        const sx = pointer.x;
+        const sy = pointer.y;
+
+        let hovered: { lines: string[] } | null = null;
 
         // Юниты (ближайший в радиусе 30)
         for (const unit of this.unitGroup) {
             if (!unit.active) continue;
-            const dist = Phaser.Math.Distance.Between(x, y, unit.x, unit.y);
+            const dist = Phaser.Math.Distance.Between(wx, wy, unit.x, unit.y);
             if (dist < 30) {
                 const lines = this.getUnitTooltip(unit);
-                if (lines) hovered = { x: unit.x, y: unit.y, lines };
+                if (lines) hovered = { lines };
                 break;
             }
         }
 
-        // Постройки (фабрики, HQ)
+        // Постройки (фабрики)
         if (!hovered) {
             for (const b of this.buildingGroup) {
                 if (!b.active) continue;
-                const dist = Phaser.Math.Distance.Between(x, y, b.x, b.y);
+                const dist = Phaser.Math.Distance.Between(wx, wy, b.x, b.y);
                 if (dist < 50) {
                     hovered = {
-                        x: b.x, y: b.y,
                         lines: [
                             `Фабрика (Команда ${b.team === 1 ? '1 🔵' : '2 🔴'})`,
                             `HP: ${Math.max(0, Math.round(b.hp))}/${b.maxHp}`,
@@ -732,10 +769,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         if (!hovered) {
             for (const hq of this.hqGroup) {
                 if (!hq.active) continue;
-                const dist = Phaser.Math.Distance.Between(x, y, hq.x, hq.y);
+                const dist = Phaser.Math.Distance.Between(wx, wy, hq.x, hq.y);
                 if (dist < 60) {
                     hovered = {
-                        x: hq.x, y: hq.y,
                         lines: [
                             `Командный центр (Команда ${hq.team === 1 ? '1 🔵' : '2 🔴'})`,
                             `HP: ${Math.max(0, Math.round(hq.hp))}/${hq.maxHp}`,
@@ -751,10 +787,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         if (!hovered) {
             for (const tower of this.towerGroup) {
                 if (!tower.active) continue;
-                const dist = Phaser.Math.Distance.Between(x, y, tower.x, tower.y);
+                const dist = Phaser.Math.Distance.Between(wx, wy, tower.x, tower.y);
                 if (dist < 45) {
                     hovered = {
-                        x: tower.x, y: tower.y,
                         lines: [
                             'Лазерная башня (Нейтральная)',
                             `HP: ${Math.max(0, Math.round(tower.hp))}/${tower.maxHp}`,
@@ -773,10 +808,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         if (!hovered) {
             for (const wall of this.wallGroup) {
                 if (!wall.active) continue;
-                const dist = Phaser.Math.Distance.Between(x, y, wall.x, wall.y);
+                const dist = Phaser.Math.Distance.Between(wx, wy, wall.x, wall.y);
                 if (dist < 45) {
                     hovered = {
-                        x: wall.x, y: wall.y,
                         lines: [
                             'Стена (Нейтральная)',
                             wall.isFaded
@@ -794,10 +828,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         if (!hovered) {
             for (const field of this.resourceFields) {
                 if (!field.active) continue;
-                const dist = Phaser.Math.Distance.Between(x, y, field.x, field.y);
+                const dist = Phaser.Math.Distance.Between(wx, wy, field.x, field.y);
                 if (dist < field.radius) {
                     hovered = {
-                        x: field.x, y: field.y,
                         lines: [
                             'Квантовая жила',
                             `Зона добычи: ${field.radius}`,
@@ -812,9 +845,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // Облака вероятности
         if (!hovered) {
             for (const cloud of this.clouds) {
-                if (cloud.isOverlapping(x, y)) {
+                if (cloud.isOverlapping(wx, wy)) {
                     hovered = {
-                        x: cloud.x, y: cloud.y,
                         lines: [
                             'Облако вероятности',
                             'Буст добычи ×2',
@@ -831,10 +863,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         if (!hovered) {
             for (const heal of this.healGroup) {
                 if (!heal.active) continue;
-                const dist = Phaser.Math.Distance.Between(x, y, heal.x, heal.y);
+                const dist = Phaser.Math.Distance.Between(wx, wy, heal.x, heal.y);
                 if (dist < 20) {
                     hovered = {
-                        x: heal.x, y: heal.y,
                         lines: [
                             heal.isHealing
                                 ? 'Квантовый артефакт (⚕ Лечит)'
@@ -851,7 +882,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         }
 
         if (hovered) {
-            this.tooltip.show(x, y, hovered.lines);
+            this.tooltip.show(sx, sy, hovered.lines);
         } else {
             this.tooltip.hide();
         }
@@ -921,6 +952,52 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             this.produceBtn.disabled = !affordable;
             this.produceBtn.style.opacity = affordable ? '1' : '0.5';
             this.produceBtn.style.borderColor = affordable ? '#666' : '#a33';
+        }
+    }
+
+    /**
+     * Прокрутка камеры: края экрана (мышь) + клавиши WASD/стрелки.
+     */
+    private handleCameraScroll(delta: number) {
+        const cam = this.cameras.main;
+
+        // 1. Мышь у края экрана (в экранных координатах)
+        const pointer = this.input.activePointer;
+        if (!this.isSelecting) {
+            const px = pointer.x; // экранные координаты
+            const py = pointer.y;
+            const m = CONFIG.world.edgeScrollMargin;
+            const speed = CONFIG.world.edgeScrollSpeed * (delta / 1000);
+
+            if (px <= m) cam.scrollX -= speed;
+            else if (px >= window.innerWidth - m) cam.scrollX += speed;
+
+            if (py <= m) cam.scrollY -= speed;
+            else if (py >= window.innerHeight - m) cam.scrollY += speed;
+        }
+
+        // 2. Клавиши WASD/стрелки
+        const cursors = this.input.keyboard?.createCursorKeys();
+        const keys = this.input.keyboard?.addKeys('W,A,S,D') as { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key } | undefined;
+        const kSpeed = CONFIG.world.keyboardScrollSpeed * (delta / 1000);
+
+        if (cursors?.left.isDown || keys?.A.isDown) cam.scrollX -= kSpeed;
+        if (cursors?.right.isDown || keys?.D.isDown) cam.scrollX += kSpeed;
+        if (cursors?.up.isDown || keys?.W.isDown) cam.scrollY -= kSpeed;
+        if (cursors?.down.isDown || keys?.S.isDown) cam.scrollY += kSpeed;
+
+        // Ограничиваем камеру границами мира
+        cam.scrollX = Phaser.Math.Clamp(cam.scrollX, 0, this.worldWidth - window.innerWidth);
+        cam.scrollY = Phaser.Math.Clamp(cam.scrollY, 0, this.worldHeight - window.innerHeight);
+    }
+
+    /**
+     * Фокус камеры на синий HQ (база игрока).
+     */
+    private focusOnBase() {
+        const hq = this.hqGroup.find(h => h.team === 1 && h.active);
+        if (hq) {
+            this.cameras.main.centerOn(hq.x, hq.y);
         }
     }
 }

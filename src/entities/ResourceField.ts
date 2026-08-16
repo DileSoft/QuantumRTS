@@ -10,9 +10,13 @@ export class ResourceField extends Phaser.GameObjects.Container {
     private coreCircle: Phaser.GameObjects.Arc;
     private glowCircle: Phaser.GameObjects.Arc;
     private ringCircle: Phaser.GameObjects.Arc;
+    private worldWidth: number;
+    private worldHeight: number;
 
-    constructor(scene: Phaser.Scene, x: number, y: number) {
+    constructor(scene: Phaser.Scene, x: number, y: number, worldWidth: number, worldHeight: number) {
         super(scene, x, y);
+        this.worldWidth = worldWidth;
+        this.worldHeight = worldHeight;
 
         // Ядро жилы (золотистое)
         this.coreCircle = scene.add.arc(0, 0, this.radius * 0.4, 0, 360, false, 0xf1c40f);
@@ -47,8 +51,8 @@ export class ResourceField extends Phaser.GameObjects.Container {
      */
     private startFloating() {
         const moveField = () => {
-            const destX = Phaser.Math.Between(50, window.innerWidth - 50);
-            const destY = Phaser.Math.Between(50, window.innerHeight - 50);
+            const destX = Phaser.Math.Between(50, this.worldWidth - 50);
+            const destY = Phaser.Math.Between(50, this.worldHeight - 50);
             const duration = Phaser.Math.Between(20000, 30000);
 
             this.scene.tweens.add({

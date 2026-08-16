@@ -15,6 +15,8 @@ export interface AiSceneApi {
     getTeamFactories(team: number): Factory[];
     getTeamBuilders(team: number): BuilderUnit[];
     getEnemyBasePosition(team: number): { x: number; y: number };
+    getWorldWidth(): number;
+    getWorldHeight(): number;
     aiSpawnBuilder(x: number, y: number, team: number, color: number): void;
     aiSpawnHarvester(x: number, y: number, team: number, color: number): void;
     aiCreateFactory(x: number, y: number, team: number, color: number): boolean;
@@ -61,8 +63,8 @@ export class AiController {
         const harvesters = units.filter(u => u instanceof HarvesterUnit).length;
         if (harvesters < CONFIG.ai.harvesters && credits >= CONFIG.costs.harvester) {
             this.scene.aiSpawnHarvester(
-                Phaser.Math.Between(100, window.innerWidth - 100),
-                Phaser.Math.Between(100, window.innerHeight - 100),
+                Phaser.Math.Between(100, this.scene.getWorldWidth() - 100),
+                Phaser.Math.Between(100, this.scene.getWorldHeight() - 100),
                 this.team,
                 this.color
             );
