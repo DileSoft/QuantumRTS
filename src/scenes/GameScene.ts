@@ -385,8 +385,20 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             return;
         }
 
-        const actualX = x ?? Phaser.Math.Between(100, this.worldWidth - 100);
-        const actualY = y ?? Phaser.Math.Between(100, this.worldHeight - 100);
+        // Если координаты не заданы — спавним рядом с HQ своей команды
+        let actualX = x;
+        let actualY = y;
+        if (actualX === null || actualY === null) {
+            const hq = this.hqGroup.find(h => h.team === team && h.active);
+            if (hq) {
+                // Небольшой случайный разброс вокруг HQ
+                actualX = hq.x + Phaser.Math.Between(-60, 60);
+                actualY = hq.y + 80 + Phaser.Math.Between(0, 40);
+            } else {
+                actualX = Phaser.Math.Between(100, this.worldWidth - 100);
+                actualY = Phaser.Math.Between(100, this.worldHeight - 100);
+            }
+        }
 
         const harvester = new HarvesterUnit({
             scene: this,
@@ -578,6 +590,23 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             });
         }
 
+        // Check HQ (только свой)
+        if (this.selectedEntities.length === 0 || isSingleClick) {
+            this.hqGroup.forEach(hq => {
+                if (!hq.active || hq.team !== 1) return;
+
+                if (isSingleClick) {
+                    if (Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, hq.x, hq.y) < 60) {
+                        this.selectedEntities.push(hq);
+                    }
+                } else {
+                    if (selectionRect.contains(hq.x, hq.y)) {
+                        this.selectedEntities.push(hq);
+                    }
+                }
+            });
+        }
+
         this.selectedEntities.forEach(e => e.setSelected(true));
 
         // Show/Hide build button if builder is selected
@@ -589,6 +618,12 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         const factorySelected = this.selectedEntities.some(e => e instanceof Factory);
         const produceBtn = document.getElementById('produce-btn');
         if (produceBtn) produceBtn.style.display = factorySelected ? 'inline-block' : 'none';
+
+        // Show/Hide spawn-harvester button if HQ is selected
+        const hqSelected = this.selectedEntities.some(e => e instanceof HQ);
+        if (this.spawnHarvesterBtn) {
+            this.spawnHarvesterBtn.style.display = hqSelected ? 'inline-block' : 'none';
+        }
     }
 
     private handleRightClick(pointer: Phaser.Input.Pointer) {

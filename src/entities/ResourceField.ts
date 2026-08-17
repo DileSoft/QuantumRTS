@@ -47,13 +47,14 @@ export class ResourceField extends Phaser.GameObjects.Container {
     }
 
     /**
-     * Жила плавает по карте (как облако вероятности).
+     * Жила плавает по карте очень медленно (квантовая жила почти статична).
      */
     private startFloating() {
         const moveField = () => {
             const destX = Phaser.Math.Between(50, this.worldWidth - 50);
             const destY = Phaser.Math.Between(50, this.worldHeight - 50);
-            const duration = Phaser.Math.Between(20000, 30000);
+            // Очень медленное движение: 60-90 секунд на переход через всю карту
+            const duration = Phaser.Math.Between(60000, 90000);
 
             this.scene.tweens.add({
                 targets: this,
