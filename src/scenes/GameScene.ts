@@ -704,7 +704,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             w.update(time, inCloud);
         });
 
-        const allEntities: BaseEntity[] = [...this.unitGroup, ...this.buildingGroup, ...this.towerGroup];
+        const allEntities: BaseEntity[] = [...this.unitGroup, ...this.buildingGroup, ...this.towerGroup, ...this.hqGroup];
 
         // Update each unit
         for (const unit of this.unitGroup) {
