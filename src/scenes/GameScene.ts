@@ -15,6 +15,7 @@ import { HQ } from '../entities/HQ';
 import { Economy } from '../systems/Economy';
 import { AiController, AiSceneApi } from '../ai/AiController';
 import { Tooltip } from '../ui/Tooltip';
+import { Minimap } from '../ui/Minimap';
 
 export class GameScene extends Phaser.Scene implements AiSceneApi {
     private unitGroup: BaseUnit[] = [];
@@ -45,6 +46,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     // Размеры мира (больше экрана — камера прокручивается)
     private worldWidth: number = 0;
     private worldHeight: number = 0;
+
+    // Мини-карта
+    private minimap: Minimap | null = null;
 
     constructor() {
         super('GameScene');
@@ -92,6 +96,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         this.lastTowerSpawn = 0;
         this.isSelecting = false;
         this.selectionStartPoint = new Phaser.Math.Vector2();
+        this.minimap = null;
 
         // Удаляем DOM-кнопки, созданные в предыдущем запуске (build-btn, produce-btn)
         document.getElementById('build-btn')?.remove();
@@ -144,6 +149,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // Камера: старт на синем HQ (игрок), границы прокрутки = границы мира
         this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
         this.cameras.main.centerOn(200, 200);
+
+        // Мини-карта
+        this.minimap = new Minimap(this, this.worldWidth, this.worldHeight, (wx, wy) => this.jumpCamera(wx, wy));
 
         // Квантовые жилы ресурсов
         for (let i = 0; i < CONFIG.resourceFields.count; i++) {
@@ -237,6 +245,12 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
         // Input (в мировых координатах, чтобы камера не ломала клики)
         this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+            // Клик по мини-карте — прыжок камеры (без выделения)
+            if (pointer.leftButtonDown() && this.minimap?.isInside(pointer.x, pointer.y)) {
+                this.minimap.handleClick(pointer.x, pointer.y);
+                return;
+            }
+
             if (pointer.leftButtonDown()) {
                 this.isSelecting = true;
                 this.selectionStartPoint.set(pointer.worldX, pointer.worldY);
@@ -249,19 +263,35 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         });
 
         this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+            // Перетаскивание по мини-карте — тоже двигаем камеру
+            if (pointer.isDown && this.minimap?.isInside(pointer.x, pointer.y)) {
+                this.minimap.handleClick(pointer.x, pointer.y);
+                return;
+            }
+
             if (this.isSelecting) {
                 const width = pointer.worldX - this.selectionStartPoint.x;
                 const height = pointer.worldY - this.selectionStartPoint.y;
                 this.selectionRect.setSize(width, height);
             }
 
-            // Tooltip при наведении на объекты
-            this.updateTooltip(pointer);
+            // Tooltip при наведении на объекты (не над мини-картой)
+            if (!this.minimap?.isInside(pointer.x, pointer.y)) {
+                this.updateTooltip(pointer);
+            } else {
+                this.tooltip?.hide();
+            }
         });
 
         this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
             if (pointer.leftButtonReleased()) {
                 if (this.isSelecting) {
+                    // Клик был над мини-картой — не выделяем
+                    if (this.minimap?.isInside(pointer.x, pointer.y)) {
+                        this.isSelecting = false;
+                        this.selectionRect.setVisible(false);
+                        return;
+                    }
                     this.handleSelection(pointer);
                     this.isSelecting = false;
                     this.selectionRect.setVisible(false);
@@ -656,6 +686,18 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // Прокрутка камеры: края экрана + клавиши WASD/стрелки
         this.handleCameraScroll(delta);
 
+        // Мини-карта: обновляем точки и рамку обзора
+        this.minimap?.update(
+            this.cameras.main,
+            this.unitGroup,
+            this.buildingGroup,
+            this.hqGroup,
+            this.towerGroup,
+            this.wallGroup,
+            this.resourceFields,
+            this.clouds
+        );
+
         // Spawn heal objects
         if (time > this.lastHealSpawn + 1000) {
             this.lastHealSpawn = time;
@@ -1034,5 +1076,12 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         if (hq) {
             this.cameras.main.centerOn(hq.x, hq.y);
         }
+    }
+
+    /**
+     * Перемещение камеры по клику на мини-карте.
+     */
+    private jumpCamera(worldX: number, worldY: number) {
+        this.cameras.main.centerOn(worldX, worldY);
     }
 }
