@@ -1,4 +1,5 @@
 import 'phaser';
+import './react/mount';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import { PauseScene } from './scenes/PauseScene';

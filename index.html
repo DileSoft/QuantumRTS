@@ -16,106 +16,17 @@
             width: 100vw;
             height: 100vh;
         }
-        #credits-hud {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.6);
-            color: #fff;
-            padding: 8px 14px;
-            border-radius: 4px;
-            font-size: 18px;
-            font-weight: bold;
+        #root {
+            position: fixed;
+            inset: 0;
             pointer-events: none;
-            font-family: sans-serif;
-        }
-        #event-log {
-            position: absolute;
-            left: 20px;
-            bottom: 10px;
-            width: 320px;
-            max-height: 150px;
-            overflow-y: auto;
-            background: rgba(0, 0, 0, 0.6);
-            color: #ccc;
-            padding: 8px 10px;
-            border-radius: 4px;
-            font-size: 13px;
-            line-height: 1.5;
-            pointer-events: none;
-            font-family: sans-serif;
-            border-left: 3px solid #666;
-        }
-        .event-log-entry {
-            margin-bottom: 2px;
-        }
-        .event-log-info {
-            color: #ccc;
-        }
-        .event-log-success {
-            color: #2ecc71;
-        }
-        .event-log-warning {
-            color: #f1c40f;
-        }
-        .event-log-danger {
-            color: #e74c3c;
-            font-weight: bold;
-        }
-        #ui-layer {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        #controls {
-            display: flex;
-            gap: 10px;
-        }
-        #instructions {
-            background: rgba(0, 0, 0, 0.6);
-            color: #ccc;
-            padding: 10px;
-            border-radius: 4px;
-            font-size: 14px;
-            line-height: 1.4;
-            border-left: 3px solid #666;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            pointer-events: auto;
-            background: #444;
-            color: white;
-            border: 1px solid #666;
-            border-radius: 4px;
-        }
-        button:hover {
-            background: #555;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
     <div id="game-container"></div>
-    <div id="credits-hud"></div>
-    <div id="event-log"></div>
-    <div id="ui-layer">
-        <div id="controls">
-            <button id="spawn-harvester" style="display: none;">Spawn Harvester (75)</button>
-            <button id="focus-base">🎯 База</button>
-        </div>
-        <div id="instructions">
-            ЛКМ (Левая кнопка): Выбрать юнита<br>
-            ПКМ (Правая кнопка): Двигаться в точку<br>
-            WASD / стрелки / края экрана — прокрутка карты<br>
-            Жёлтые поля — квантовые жилы. Харвестер добывает рядом с ними.<br>
-            Фиолетовые облака — вероятность: буст добычи и риск сбоя.
-        </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

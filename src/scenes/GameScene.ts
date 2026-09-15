@@ -16,7 +16,7 @@ import { Economy } from '../systems/Economy';
 import { AiController, AiSceneApi } from '../ai/AiController';
 import { Tooltip } from '../ui/Tooltip';
 import { Minimap } from '../ui/Minimap';
-import { EventLog } from '../ui/EventLog';
+import { gameBridge } from '../ui/react/gameBridge';
 
 export class GameScene extends Phaser.Scene implements AiSceneApi {
     private unitGroup: BaseUnit[] = [];
@@ -31,11 +31,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     private resourceFields: ResourceField[] = [];
     private economyBlue: Economy = new Economy(1);
     private economyRed: Economy = new Economy(2);
-    private creditsHud: HTMLElement | null = null;
     private tooltip: Tooltip | null = null;
-    private spawnHarvesterBtn: HTMLButtonElement | null = null;
-    private buildBtn: HTMLButtonElement | null = null;
-    private produceBtn: HTMLButtonElement | null = null;
     private gameOverFlag: boolean = false;
     private ai: AiController | null = null;
     private lastHealSpawn: number = 0;
@@ -51,8 +47,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     // Мини-карта
     private minimap: Minimap | null = null;
 
-    // Лог событий
-    private eventLog: EventLog | null = null;
+    // Лог событий (через React-мост)
     private baseUnderAttack: boolean = false;
     private lastBaseAttackWarning: number = 0;
 
@@ -91,11 +86,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         this.resourceFields = [];
         this.economyBlue = new Economy(1);
         this.economyRed = new Economy(2);
-        this.creditsHud = null;
         this.tooltip = null;
-        this.spawnHarvesterBtn = null;
-        this.buildBtn = null;
-        this.produceBtn = null;
         this.gameOverFlag = false;
         this.ai = null;
         this.lastHealSpawn = 0;
@@ -103,14 +94,12 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         this.isSelecting = false;
         this.selectionStartPoint = new Phaser.Math.Vector2();
         this.minimap = null;
-        this.eventLog = null;
         this.baseUnderAttack = false;
         this.lastBaseAttackWarning = 0;
 
-        // Удаляем DOM-кнопки, созданные в предыдущем запуске (build-btn, produce-btn)
-        document.getElementById('build-btn')?.remove();
-        document.getElementById('produce-btn')?.remove();
-        document.getElementById('game-over-overlay')?.remove();
+        // Сбрасываем React-HUD (кредиты, селекция, лог, game-over)
+        gameBridge.unregisterAllActions();
+        gameBridge.reset();
     }
 
     public removeEntity(entity: Phaser.GameObjects.GameObject, silent: boolean = false) {
@@ -150,37 +139,36 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
      * Wall/HealObject пропускаем (шум), HQ покрыт оверлеем конца игры.
      */
     private logEntityLoss(entity: Phaser.GameObjects.GameObject) {
-        if (!this.eventLog) return;
         const time = this.time.now;
 
         if (entity instanceof TankUnit) {
             if (entity.team === 1) {
-                this.eventLog.log('Наш танк уничтожен', 'warning', time);
+                gameBridge.log('Наш танк уничтожен', 'warning', time);
             }
             return;
         }
         if (entity instanceof HarvesterUnit) {
             if (entity.team === 1) {
-                this.eventLog.log('Наш харвестер уничтожен', 'warning', time);
+                gameBridge.log('Наш харвестер уничтожен', 'warning', time);
             }
             return;
         }
         if (entity instanceof BuilderUnit) {
             if (entity.team === 1) {
-                this.eventLog.log('Наш строитель уничтожен', 'warning', time);
+                gameBridge.log('Наш строитель уничтожен', 'warning', time);
             }
             return;
         }
         if (entity instanceof Factory) {
             if (entity.team === 1) {
-                this.eventLog.log('Наша фабрика уничтожена!', 'danger', time);
+                gameBridge.log('Наша фабрика уничтожена!', 'danger', time);
             } else {
-                this.eventLog.log('Фабрика врага уничтожена!', 'success', time);
+                gameBridge.log('Фабрика врага уничтожена!', 'success', time);
             }
             return;
         }
         if (entity instanceof LaserTower) {
-            this.eventLog.log('Лазерная башня уничтожена', 'info', time);
+            gameBridge.log('Лазерная башня уничтожена', 'info', time);
             return;
         }
     }
@@ -216,54 +204,32 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             this.resourceFields.push(new ResourceField(this, rx, ry, this.worldWidth, this.worldHeight));
         }
 
-        // HUD: кредиты команд (DOM — поверх канваса)
-        this.creditsHud = document.getElementById('credits-hud');
-
-        // Лог событий
-        this.eventLog = new EventLog();
-        this.eventLog.clear();
-        this.eventLog.log('Игра началась. Уничтожьте HQ врага!', 'info', 0);
+        // HUD: кредиты и лог через React-мост
+        gameBridge.clearLog();
+        gameBridge.log('Игра началась. Уничтожьте HQ врага!', 'info', 0);
 
         // Tooltip при наведении
         this.tooltip = new Tooltip(this);
 
-        // UI Setup
-        this.spawnHarvesterBtn = document.getElementById('spawn-harvester') as HTMLButtonElement | null;
-        this.spawnHarvesterBtn?.addEventListener('click', () => this.spawnHarvester(null, null, 1, 0x3498db));
-
-        // Кнопка «🎯 База» — фокус камеры на синий HQ
-        document.getElementById('focus-base')?.addEventListener('click', () => this.focusOnBase());
-        
-        // Build button
-        const buildBtn = document.createElement('button');
-        buildBtn.id = 'build-btn';
-        buildBtn.innerText = `Build Factory (${CONFIG.costs.factory})`;
-        buildBtn.style.display = 'none';
-        document.getElementById('controls')?.appendChild(buildBtn);
-        buildBtn.addEventListener('click', () => {
+        // Действия для React-кнопок
+        gameBridge.registerAction('spawnHarvester', () => this.spawnHarvester(null, null, 1, 0x3498db));
+        gameBridge.registerAction('focusBase', () => this.focusOnBase());
+        gameBridge.registerAction('build', () => {
             this.selectedEntities.forEach(e => {
                 if (e instanceof BuilderUnit) e.build();
             });
         });
-        this.buildBtn = buildBtn;
-
-        // Produce Tank button
-        const produceBtn = document.createElement('button');
-        produceBtn.id = 'produce-btn';
-        produceBtn.innerText = `Produce Tank (${CONFIG.costs.tank})`;
-        produceBtn.style.display = 'none';
-        document.getElementById('controls')?.appendChild(produceBtn);
-        produceBtn.addEventListener('click', () => {
+        gameBridge.registerAction('produce', () => {
             this.selectedEntities.forEach(e => {
                 if (e instanceof Factory) {
                     const ok = e.startProduction();
                     if (!ok) {
-                        this.eventLog?.log(`Не хватает кредитов для танка (${CONFIG.costs.tank})`, 'warning', this.time.now);
+                        gameBridge.log(`Не хватает кредитов для танка (${CONFIG.costs.tank})`, 'warning', this.time.now);
                     }
                 }
             });
         });
-        this.produceBtn = produceBtn;
+        gameBridge.registerAction('restart', () => this.scene.restart());
 
         // Initial Builders
         // HQ синей команды (игрок, слева-сверху)
@@ -459,7 +425,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     private spawnTank(x: number | null, y: number | null, team: number, color: number, free: boolean = false) {
         if (!free && !this.getEconomy(team).spend(CONFIG.costs.tank)) {
             if (team === 1) {
-                this.eventLog?.log(`Не хватает кредитов для танка (${CONFIG.costs.tank})`, 'warning', this.time.now);
+                gameBridge.log(`Не хватает кредитов для танка (${CONFIG.costs.tank})`, 'warning', this.time.now);
             }
             return;
         }
@@ -480,7 +446,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     private spawnHarvester(x: number | null, y: number | null, team: number, color: number) {
         if (!this.getEconomy(team).spend(CONFIG.costs.harvester)) {
             if (team === 1) {
-                this.eventLog?.log(`Не хватает кредитов для харвестера (${CONFIG.costs.harvester})`, 'warning', this.time.now);
+                gameBridge.log(`Не хватает кредитов для харвестера (${CONFIG.costs.harvester})`, 'warning', this.time.now);
             }
             return;
         }
@@ -580,33 +546,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         const isPlayerWin = winner === 1;
         const message = isPlayerWin ? '🔵 ПОБЕДА! Синие уничтожили базу врага' : '🔴 ПОРАЖЕНИЕ! Ваша база уничтожена';
 
-        // Создаём оверлей
-        const overlay = document.createElement('div');
-        overlay.id = 'game-over-overlay';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            color: white;
-            font-family: sans-serif;
-        `;
-        overlay.innerHTML = `
-            <h1 style="font-size: 64px; margin-bottom: 20px;">${message}</h1>
-            <button id="restart-btn" style="padding: 15px 40px; font-size: 24px; cursor: pointer;
-                background: #444; color: white; border: 2px solid #888; border-radius: 8px;">
-                Играть снова
-            </button>
-        `;
-        document.body.appendChild(overlay);
-
-        document.getElementById('restart-btn')?.addEventListener('click', () => {
-            this.scene.restart();
-        });
+        // Оверлей конца игры — через React
+        gameBridge.setGameOver({ winner, message });
     }
 
     private spawnBuilder(x: number, y: number, team: number, color: number) {
@@ -624,7 +565,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     private createFactory(x: number, y: number, team: number, color: number) {
         if (!this.getEconomy(team).spend(CONFIG.costs.factory)) {
             if (team === 1) {
-                this.eventLog?.log(`Не хватает кредитов для фабрики (${CONFIG.costs.factory})`, 'warning', this.time.now);
+                gameBridge.log(`Не хватает кредитов для фабрики (${CONFIG.costs.factory})`, 'warning', this.time.now);
             }
             return;
         }
@@ -643,14 +584,14 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             onSpendResources: (amount) => this.getEconomy(team).spend(amount),
             onUnitProduced: () => {
                 if (team === 1) {
-                    this.eventLog?.log('Танк готов', 'success', this.time.now);
+                    gameBridge.log('Танк готов', 'success', this.time.now);
                 }
             }
         });
         this.buildingGroup.push(factory);
 
         if (team === 1) {
-            this.eventLog?.log('Фабрика построена', 'success', this.time.now);
+            gameBridge.log('Фабрика построена', 'success', this.time.now);
         }
     }
 
@@ -720,21 +661,12 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
         this.selectedEntities.forEach(e => e.setSelected(true));
 
-        // Show/Hide build button if builder is selected
-        const builderSelected = this.selectedEntities.some(e => e instanceof BuilderUnit);
-        const buildBtn = document.getElementById('build-btn');
-        if (buildBtn) buildBtn.style.display = builderSelected ? 'inline-block' : 'none';
-
-        // Show/Hide produce button if factory is selected
-        const factorySelected = this.selectedEntities.some(e => e instanceof Factory);
-        const produceBtn = document.getElementById('produce-btn');
-        if (produceBtn) produceBtn.style.display = factorySelected ? 'inline-block' : 'none';
-
-        // Show/Hide spawn-harvester button if HQ is selected
-        const hqSelected = this.selectedEntities.some(e => e instanceof HQ);
-        if (this.spawnHarvesterBtn) {
-            this.spawnHarvesterBtn.style.display = hqSelected ? 'inline-block' : 'none';
-        }
+        // Видимость React-кнопок по текущей селекции
+        gameBridge.setSelection({
+            builder: this.selectedEntities.some(e => e instanceof BuilderUnit),
+            factory: this.selectedEntities.some(e => e instanceof Factory),
+            hq: this.selectedEntities.some(e => e instanceof HQ)
+        });
     }
 
     private handleRightClick(pointer: Phaser.Input.Pointer) {
@@ -756,10 +688,8 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // ИИ противника
         this.ai?.update(time);
 
-        // HUD: кредиты команд
-        if (this.creditsHud) {
-            this.creditsHud.innerText = `🔵 ${this.economyBlue.getCredits()}   🔴 ${this.economyRed.getCredits()}`;
-        }
+        // HUD: кредиты команд (через React-мост, пушим только при изменении)
+        gameBridge.setCredits(this.economyBlue.getCredits(), this.economyRed.getCredits());
 
         // Обновляем доступность кнопок по ресурсам игрока (команда 1)
         this.updateButtonsAvailability();
@@ -1090,30 +1020,11 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     private updateButtonsAvailability() {
         const credits = this.economyBlue.getCredits();
 
-        // Spawn Harvester
-        if (this.spawnHarvesterBtn) {
-            const affordable = credits >= CONFIG.costs.harvester;
-            this.spawnHarvesterBtn.disabled = !affordable;
-            this.spawnHarvesterBtn.style.opacity = affordable ? '1' : '0.5';
-            this.spawnHarvesterBtn.style.background = affordable ? '#444' : '#333';
-            this.spawnHarvesterBtn.style.borderColor = affordable ? '#666' : '#a33';
-        }
-
-        // Build Factory (видна только при выборе строителя)
-        if (this.buildBtn && this.buildBtn.style.display !== 'none') {
-            const affordable = credits >= CONFIG.costs.factory;
-            this.buildBtn.disabled = !affordable;
-            this.buildBtn.style.opacity = affordable ? '1' : '0.5';
-            this.buildBtn.style.borderColor = affordable ? '#666' : '#a33';
-        }
-
-        // Produce Tank (видна только при выборе фабрики)
-        if (this.produceBtn && this.produceBtn.style.display !== 'none') {
-            const affordable = credits >= CONFIG.costs.tank;
-            this.produceBtn.disabled = !affordable;
-            this.produceBtn.style.opacity = affordable ? '1' : '0.5';
-            this.produceBtn.style.borderColor = affordable ? '#666' : '#a33';
-        }
+        gameBridge.setAffordability({
+            harvester: credits >= CONFIG.costs.harvester,
+            factory: credits >= CONFIG.costs.factory,
+            tank: credits >= CONFIG.costs.tank
+        });
     }
 
     /**
@@ -1175,8 +1086,6 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
      * сообщает об отражении атаки.
      */
     private checkBaseUnderAttack(time: number) {
-        if (!this.eventLog) return;
-
         const playerHq = this.hqGroup.find(h => h.team === 1 && h.active && h.hp > 0);
         if (!playerHq) return;
 
@@ -1191,16 +1100,16 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
                 // Начало атаки
                 this.baseUnderAttack = true;
                 this.lastBaseAttackWarning = time;
-                this.eventLog.log('⚠ База под атакой!', 'danger', time);
+                gameBridge.log('⚠ База под атакой!', 'danger', time);
             } else if (time - this.lastBaseAttackWarning > CONFIG.notifications.baseAttackCooldown) {
                 // Атака продолжается — напоминаем
                 this.lastBaseAttackWarning = time;
-                this.eventLog.log('⚠ База всё ещё под атакой!', 'danger', time);
+                gameBridge.log('⚠ База всё ещё под атакой!', 'danger', time);
             }
         } else if (this.baseUnderAttack) {
             // Атака отражена
             this.baseUnderAttack = false;
-            this.eventLog.log('Атака на базу отражена', 'success', time);
+            gameBridge.log('Атака на базу отражена', 'success', time);
         }
     }
 }

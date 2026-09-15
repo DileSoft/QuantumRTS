@@ -1,0 +1,123 @@
+#root {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#root button {
+    pointer-events: auto;
+}
+
+#credits-hud {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-size: 18px;
+    font-weight: bold;
+    pointer-events: none;
+    font-family: sans-serif;
+}
+
+#event-log {
+    position: absolute;
+    left: 20px;
+    bottom: 10px;
+    width: 320px;
+    max-height: 150px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.6);
+    color: #ccc;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    pointer-events: none;
+    font-family: sans-serif;
+    border-left: 3px solid #666;
+}
+
+.event-log-entry {
+    margin-bottom: 2px;
+}
+
+.event-log-info {
+    color: #ccc;
+}
+
+.event-log-success {
+    color: #2ecc71;
+}
+
+.event-log-warning {
+    color: #f1c40f;
+}
+
+.event-log-danger {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#controls {
+    display: flex;
+    gap: 10px;
+}
+
+#instructions {
+    background: rgba(0, 0, 0, 0.6);
+    color: #ccc;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+    border-left: 3px solid #666;
+}
+
+#root button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    background: #444;
+    color: white;
+    border: 1px solid #666;
+    border-radius: 4px;
+}
+
+#root button:hover {
+    background: #555;
+}
+
+#root button:disabled {
+    cursor: default;
+}
+
+#game-over-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    color: white;
+    font-family: sans-serif;
+    pointer-events: auto;
+}
