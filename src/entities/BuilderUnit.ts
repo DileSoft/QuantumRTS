@@ -28,7 +28,7 @@ export class BuilderUnit extends BaseUnit {
     public build() {
         if (this.hp > 0) {
             this.onBuild(this.x, this.y, this.team, this.color);
-            (this.scene as any).removeEntity(this);
+            (this.scene as any).removeEntity(this, true);
             this.destroy();
         }
     }

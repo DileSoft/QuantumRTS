@@ -29,6 +29,39 @@
             pointer-events: none;
             font-family: sans-serif;
         }
+        #event-log {
+            position: absolute;
+            left: 20px;
+            bottom: 10px;
+            width: 320px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.6);
+            color: #ccc;
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.5;
+            pointer-events: none;
+            font-family: sans-serif;
+            border-left: 3px solid #666;
+        }
+        .event-log-entry {
+            margin-bottom: 2px;
+        }
+        .event-log-info {
+            color: #ccc;
+        }
+        .event-log-success {
+            color: #2ecc71;
+        }
+        .event-log-warning {
+            color: #f1c40f;
+        }
+        .event-log-danger {
+            color: #e74c3c;
+            font-weight: bold;
+        }
         #ui-layer {
             position: absolute;
             top: 20px;
@@ -69,6 +102,7 @@
 <body>
     <div id="game-container"></div>
     <div id="credits-hud"></div>
+    <div id="event-log"></div>
     <div id="ui-layer">
         <div id="controls">
             <button id="spawn-harvester" style="display: none;">Spawn Harvester (75)</button>

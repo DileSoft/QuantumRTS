@@ -73,5 +73,15 @@ export const CONFIG = {
         edgeScrollMargin: 50,
         // Скорость прокрутки клавишами (px/сек)
         keyboardScrollSpeed: 700
+    },
+
+    // Уведомления (лог событий)
+    notifications: {
+        // Максимум видимых записей в логе
+        maxEntries: 30,
+        // Радиус детекта атаки на базу игрока (px от HQ)
+        baseAttackRadius: 400,
+        // Кулдаун повторных предупреждений об атаке (мс)
+        baseAttackCooldown: 10000
     }
 };

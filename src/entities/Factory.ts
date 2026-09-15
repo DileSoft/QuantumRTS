@@ -5,6 +5,7 @@ import { CONFIG } from '../config';
 export interface SpecificBuildingConfig extends BuildingConfig {
     onSpawnUnit: (x: number, y: number, team: number, color: number) => void;
     onSpendResources: (amount: number) => boolean;
+    onUnitProduced?: () => void;
 }
 
 export class Factory extends BaseBuilding {
@@ -14,12 +15,14 @@ export class Factory extends BaseBuilding {
     private productionQueue: number = 0;
     private onSpawnUnit: (x: number, y: number, team: number, color: number) => void;
     private onSpendResources: (amount: number) => boolean;
+    private onUnitProduced?: () => void;
     private progressText: Phaser.GameObjects.Text;
 
     constructor(config: SpecificBuildingConfig) {
         super({ ...config, hp: 500 });
         this.onSpawnUnit = config.onSpawnUnit;
         this.onSpendResources = config.onSpendResources;
+        this.onUnitProduced = config.onUnitProduced;
 
         this.bodySprite = this.scene.add.rectangle(0, 0, 60, 60, this.color);
         this.bodySprite.setStrokeStyle(4, 0xffffff);
@@ -75,19 +78,24 @@ export class Factory extends BaseBuilding {
             });
 
             this.onSpawnUnit(this.x, spawnY, this.team, this.color);
+            this.onUnitProduced?.();
         }
     }
 
-    public startProduction() {
-        if (this.hp <= 0) return;
+    /**
+     * Ставит танк в очередь производства.
+     * @returns true, если постановка прошла; false — если не хватило кредитов.
+     */
+    public startProduction(): boolean {
+        if (this.hp <= 0) return false;
 
         // Списываем ресурсы сразу при постановке в очередь
         if (!this.onSpendResources(CONFIG.costs.tank)) {
-            console.warn('[Economy] Недостаточно кредитов для производства танка');
-            return;
+            return false;
         }
 
         this.productionQueue++;
+        return true;
     }
 
     public isProducing(): boolean {

@@ -16,6 +16,7 @@ import { Economy } from '../systems/Economy';
 import { AiController, AiSceneApi } from '../ai/AiController';
 import { Tooltip } from '../ui/Tooltip';
 import { Minimap } from '../ui/Minimap';
+import { EventLog } from '../ui/EventLog';
 
 export class GameScene extends Phaser.Scene implements AiSceneApi {
     private unitGroup: BaseUnit[] = [];
@@ -49,6 +50,11 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
     // Мини-карта
     private minimap: Minimap | null = null;
+
+    // Лог событий
+    private eventLog: EventLog | null = null;
+    private baseUnderAttack: boolean = false;
+    private lastBaseAttackWarning: number = 0;
 
     constructor() {
         super('GameScene');
@@ -97,6 +103,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         this.isSelecting = false;
         this.selectionStartPoint = new Phaser.Math.Vector2();
         this.minimap = null;
+        this.eventLog = null;
+        this.baseUnderAttack = false;
+        this.lastBaseAttackWarning = 0;
 
         // Удаляем DOM-кнопки, созданные в предыдущем запуске (build-btn, produce-btn)
         document.getElementById('build-btn')?.remove();
@@ -104,8 +113,14 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         document.getElementById('game-over-overlay')?.remove();
     }
 
-    public removeEntity(entity: Phaser.GameObjects.GameObject) {
+    public removeEntity(entity: Phaser.GameObjects.GameObject, silent: boolean = false) {
         if (this.gameOverFlag) return;
+
+        // Логируем потери (до удаления из групп).
+        // silent=true — добровольное преобразование (строитель → фабрика), не потеря.
+        if (!silent) {
+            this.logEntityLoss(entity);
+        }
 
         if (entity instanceof BaseUnit) {
             this.unitGroup = this.unitGroup.filter(u => u !== entity);
@@ -126,6 +141,47 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         
         if (entity instanceof BaseEntity) {
             this.selectedEntities = this.selectedEntities.filter(e => e !== entity);
+        }
+    }
+
+    /**
+     * Логирует уничтожение объекта.
+     * Потери игрока — всегда; потери врага — только фабрики (без спама).
+     * Wall/HealObject пропускаем (шум), HQ покрыт оверлеем конца игры.
+     */
+    private logEntityLoss(entity: Phaser.GameObjects.GameObject) {
+        if (!this.eventLog) return;
+        const time = this.time.now;
+
+        if (entity instanceof TankUnit) {
+            if (entity.team === 1) {
+                this.eventLog.log('Наш танк уничтожен', 'warning', time);
+            }
+            return;
+        }
+        if (entity instanceof HarvesterUnit) {
+            if (entity.team === 1) {
+                this.eventLog.log('Наш харвестер уничтожен', 'warning', time);
+            }
+            return;
+        }
+        if (entity instanceof BuilderUnit) {
+            if (entity.team === 1) {
+                this.eventLog.log('Наш строитель уничтожен', 'warning', time);
+            }
+            return;
+        }
+        if (entity instanceof Factory) {
+            if (entity.team === 1) {
+                this.eventLog.log('Наша фабрика уничтожена!', 'danger', time);
+            } else {
+                this.eventLog.log('Фабрика врага уничтожена!', 'success', time);
+            }
+            return;
+        }
+        if (entity instanceof LaserTower) {
+            this.eventLog.log('Лазерная башня уничтожена', 'info', time);
+            return;
         }
     }
 
@@ -163,6 +219,11 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         // HUD: кредиты команд (DOM — поверх канваса)
         this.creditsHud = document.getElementById('credits-hud');
 
+        // Лог событий
+        this.eventLog = new EventLog();
+        this.eventLog.clear();
+        this.eventLog.log('Игра началась. Уничтожьте HQ врага!', 'info', 0);
+
         // Tooltip при наведении
         this.tooltip = new Tooltip(this);
 
@@ -194,7 +255,12 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         document.getElementById('controls')?.appendChild(produceBtn);
         produceBtn.addEventListener('click', () => {
             this.selectedEntities.forEach(e => {
-                if (e instanceof Factory) e.startProduction();
+                if (e instanceof Factory) {
+                    const ok = e.startProduction();
+                    if (!ok) {
+                        this.eventLog?.log(`Не хватает кредитов для танка (${CONFIG.costs.tank})`, 'warning', this.time.now);
+                    }
+                }
             });
         });
         this.produceBtn = produceBtn;
@@ -392,7 +458,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
     private spawnTank(x: number | null, y: number | null, team: number, color: number, free: boolean = false) {
         if (!free && !this.getEconomy(team).spend(CONFIG.costs.tank)) {
-            console.warn(`[Economy] Недостаточно кредитов для танка (team ${team})`);
+            if (team === 1) {
+                this.eventLog?.log(`Не хватает кредитов для танка (${CONFIG.costs.tank})`, 'warning', this.time.now);
+            }
             return;
         }
 
@@ -411,7 +479,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
     private spawnHarvester(x: number | null, y: number | null, team: number, color: number) {
         if (!this.getEconomy(team).spend(CONFIG.costs.harvester)) {
-            console.warn(`[Economy] Недостаточно кредитов для харвестера (team ${team})`);
+            if (team === 1) {
+                this.eventLog?.log(`Не хватает кредитов для харвестера (${CONFIG.costs.harvester})`, 'warning', this.time.now);
+            }
             return;
         }
 
@@ -553,7 +623,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
 
     private createFactory(x: number, y: number, team: number, color: number) {
         if (!this.getEconomy(team).spend(CONFIG.costs.factory)) {
-            console.warn(`[Economy] Недостаточно кредитов для фабрики (team ${team})`);
+            if (team === 1) {
+                this.eventLog?.log(`Не хватает кредитов для фабрики (${CONFIG.costs.factory})`, 'warning', this.time.now);
+            }
             return;
         }
 
@@ -568,9 +640,18 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             team,
             color,
             onSpawnUnit: (ux, uy, ut, uc) => this.spawnTank(ux, uy, ut, uc, true),
-            onSpendResources: (amount) => this.getEconomy(team).spend(amount)
+            onSpendResources: (amount) => this.getEconomy(team).spend(amount),
+            onUnitProduced: () => {
+                if (team === 1) {
+                    this.eventLog?.log('Танк готов', 'success', this.time.now);
+                }
+            }
         });
         this.buildingGroup.push(factory);
+
+        if (team === 1) {
+            this.eventLog?.log('Фабрика построена', 'success', this.time.now);
+        }
     }
 
     private handleSelection(pointer: Phaser.Input.Pointer) {
@@ -697,6 +778,9 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
             this.resourceFields,
             this.clouds
         );
+
+        // Проверка атаки на базу игрока
+        this.checkBaseUnderAttack(time);
 
         // Spawn heal objects
         if (time > this.lastHealSpawn + 1000) {
@@ -1083,5 +1167,40 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
      */
     private jumpCamera(worldX: number, worldY: number) {
         this.cameras.main.centerOn(worldX, worldY);
+    }
+
+    /**
+     * Проверяет, атакуют ли враги базу игрока.
+     * Уведомляет один раз в начале атаки, повторяет по кулдауну,
+     * сообщает об отражении атаки.
+     */
+    private checkBaseUnderAttack(time: number) {
+        if (!this.eventLog) return;
+
+        const playerHq = this.hqGroup.find(h => h.team === 1 && h.active && h.hp > 0);
+        if (!playerHq) return;
+
+        const radius = CONFIG.notifications.baseAttackRadius;
+        const enemiesNear = this.unitGroup.some(
+            u => u.team !== 1 && u.active && u.hp > 0 &&
+                Phaser.Math.Distance.Between(u.x, u.y, playerHq.x, playerHq.y) < radius
+        );
+
+        if (enemiesNear) {
+            if (!this.baseUnderAttack) {
+                // Начало атаки
+                this.baseUnderAttack = true;
+                this.lastBaseAttackWarning = time;
+                this.eventLog.log('⚠ База под атакой!', 'danger', time);
+            } else if (time - this.lastBaseAttackWarning > CONFIG.notifications.baseAttackCooldown) {
+                // Атака продолжается — напоминаем
+                this.lastBaseAttackWarning = time;
+                this.eventLog.log('⚠ База всё ещё под атакой!', 'danger', time);
+            }
+        } else if (this.baseUnderAttack) {
+            // Атака отражена
+            this.baseUnderAttack = false;
+            this.eventLog.log('Атака на базу отражена', 'success', time);
+        }
     }
 }
