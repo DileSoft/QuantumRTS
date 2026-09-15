@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34">
+  <!-- hex hull (team color via tint) -->
+  <polygon points="17,2 30,9.5 30,24.5 17,32 4,24.5 4,9.5" fill="#fff" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+  <!-- cargo core (stays dark) -->
+  <circle cx="17" cy="17" r="6" fill="#fff" stroke="#111" stroke-width="2"/>
+  <circle cx="17" cy="17" r="2.6" fill="#222"/>
+  <!-- side bolts -->
+  <circle cx="9" cy="13" r="1.4" fill="#555"/>
+  <circle cx="25" cy="13" r="1.4" fill="#555"/>
+  <circle cx="9" cy="21" r="1.4" fill="#555"/>
+  <circle cx="25" cy="21" r="1.4" fill="#555"/>
+</svg>

@@ -152,8 +152,11 @@ export abstract class BaseUnit extends BaseEntity {
 
     private updateBodyColor() {
         this.iterate((child: any) => {
+            if (child?.getData?.('noRecolor')) return;
             if (child instanceof Phaser.GameObjects.Rectangle && child !== this.healthBarBg && child !== this.healthBarFill) {
                 child.setFillStyle(this.color);
+            } else if (child instanceof Phaser.GameObjects.Image && child.getData('tintable')) {
+                child.setTint(this.color);
             }
         });
     }

@@ -1,6 +1,7 @@
 import 'phaser';
 import { BaseBuilding, BuildingConfig } from './BaseBuilding';
 import { CONFIG } from '../config';
+import { addTintedSprite } from '../ui/tintedSprite';
 
 export interface SpecificBuildingConfig extends BuildingConfig {
     onSpawnUnit: (x: number, y: number, team: number, color: number) => void;
@@ -9,7 +10,7 @@ export interface SpecificBuildingConfig extends BuildingConfig {
 }
 
 export class Factory extends BaseBuilding {
-    private bodySprite: Phaser.GameObjects.Rectangle;
+    private bodySprite: Phaser.GameObjects.Image;
     private baseProductionRate: number = 4000;
     private productionStartTime: number | null = null;
     private productionQueue: number = 0;
@@ -24,9 +25,7 @@ export class Factory extends BaseBuilding {
         this.onSpendResources = config.onSpendResources;
         this.onUnitProduced = config.onUnitProduced;
 
-        this.bodySprite = this.scene.add.rectangle(0, 0, 60, 60, this.color);
-        this.bodySprite.setStrokeStyle(4, 0xffffff);
-        this.add(this.bodySprite);
+        this.bodySprite = addTintedSprite(this.scene, this, 'factory', this.color, 60, 60);
 
         this.progressText = this.scene.add.text(0, 45, 'Idle', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
         this.add(this.progressText);
@@ -105,7 +104,7 @@ export class Factory extends BaseBuilding {
     protected onDamage() {
         this.scene.tweens.add({
             targets: this.bodySprite,
-            fillAlpha: 0.5,
+            alpha: 0.5,
             duration: 50,
             yoyo: true
         });

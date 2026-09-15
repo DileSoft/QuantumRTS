@@ -2,8 +2,8 @@ import 'phaser';
 import { BaseEntity } from './BaseEntity';
 
 export class LaserTower extends BaseEntity {
-    private bodySprite: Phaser.GameObjects.Rectangle;
-    private turretSprite: Phaser.GameObjects.Rectangle;
+    private bodySprite: Phaser.GameObjects.Image;
+    private turretSprite: Phaser.GameObjects.Image;
     public attackRange: number = 250;
     private lastFired: number = 0;
     private fireRate: number = 1500;
@@ -20,11 +20,13 @@ export class LaserTower extends BaseEntity {
         });
 
         const size = 40;
-        this.bodySprite = scene.add.rectangle(0, 0, size, size, 0x34495e);
-        this.bodySprite.setStrokeStyle(2, 0xffffff);
+        this.bodySprite = scene.add.image(0, 0, 'tower');
+        this.bodySprite.setDisplaySize(size, size);
         this.add(this.bodySprite);
 
-        this.turretSprite = scene.add.rectangle(0, 0, 20, 20, 0xe74c3c);
+        this.turretSprite = scene.add.image(0, -8, 'tower-crystal');
+        this.turretSprite.setDisplaySize(20, 20);
+        this.turretSprite.setTint(0xe74c3c);
         this.add(this.turretSprite);
 
         // Static body for building
@@ -38,7 +40,7 @@ export class LaserTower extends BaseEntity {
         if (this.hp <= 0) return;
 
         this.isHealingMode = inCloud;
-        this.turretSprite.setFillStyle(this.isHealingMode ? 0x2ecc71 : 0xe74c3c);
+        this.turretSprite.setTint(this.isHealingMode ? 0x2ecc71 : 0xe74c3c);
 
         if (time > this.lastFired + this.fireRate) {
             this.handleCombat(time, allEntities);
@@ -87,7 +89,7 @@ export class LaserTower extends BaseEntity {
     protected onDamage() {
         this.scene.tweens.add({
             targets: this.bodySprite,
-            fillAlpha: 0.5,
+            alpha: 0.5,
             duration: 50,
             yoyo: true
         });

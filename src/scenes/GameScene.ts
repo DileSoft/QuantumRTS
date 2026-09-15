@@ -56,6 +56,20 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
     }
 
     /**
+     * Загрузка SVG-спрайтов юнитов и зданий (белые, красятся через tint).
+     */
+    preload() {
+        this.load.svg('tank', 'assets/tank.svg', { width: 30, height: 30 });
+        this.load.svg('builder', 'assets/builder.svg', { width: 40, height: 40 });
+        this.load.svg('harvester-body', 'assets/harvester-body.svg', { width: 34, height: 34 });
+        this.load.svg('factory', 'assets/factory.svg', { width: 60, height: 60 });
+        this.load.svg('hq', 'assets/hq.svg', { width: 80, height: 80 });
+        this.load.svg('tower', 'assets/tower.svg', { width: 40, height: 40 });
+        this.load.svg('tower-crystal', 'assets/tower-crystal.svg', { width: 20, height: 20 });
+        this.load.svg('artifact', 'assets/artifact.svg', { width: 20, height: 20 });
+    }
+
+    /**
      * Ширина игрового мира.
      */
     public getWorldWidth(): number {

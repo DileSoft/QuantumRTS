@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
+  <!-- chimney (team color via tint) -->
+  <rect x="40" y="8" width="9" height="18" fill="#fff" stroke="#111" stroke-width="2.5"/>
+  <!-- smoke puffs (stay gray) -->
+  <circle cx="44.5" cy="4.5" r="2.5" fill="#888"/>
+  <!-- roof (team color via tint) -->
+  <polygon points="4,26 30,10 56,26" fill="#fff" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- base (team color via tint) -->
+  <rect x="6" y="26" width="48" height="28" fill="#fff" stroke="#111" stroke-width="2.5"/>
+  <!-- door (stays dark) -->
+  <rect x="24" y="38" width="12" height="16" fill="#222" stroke="#111" stroke-width="1.5"/>
+  <!-- windows (stay dark) -->
+  <rect x="11" y="32" width="8" height="8" fill="#222" stroke="#111" stroke-width="1.5"/>
+  <rect x="41" y="38" width="8" height="8" fill="#222" stroke="#111" stroke-width="1.5"/>
+</svg>

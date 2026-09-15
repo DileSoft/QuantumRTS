@@ -3,6 +3,7 @@ import { BaseUnit, UnitConfig } from './BaseUnit';
 import { ResourceField } from './ResourceField';
 import { ProbabilityCloud } from './ProbabilityCloud';
 import { CONFIG } from '../config';
+import { addTintedSprite } from '../ui/tintedSprite';
 
 /**
  * Харвестер — юнит-экстрактор квантовых жил.
@@ -10,7 +11,7 @@ import { CONFIG } from '../config';
  * Внутри облака вероятности: добыча ×2, но есть шанс сбоя (урон себе).
  */
 export class HarvesterUnit extends BaseUnit {
-    private bodySprite: Phaser.GameObjects.Rectangle;
+    private bodySprite: Phaser.GameObjects.Image;
     private drillSprite: Phaser.GameObjects.Rectangle;
     private lastHarvestTick: number = 0;
     private currentField: ResourceField | null = null;
@@ -22,11 +23,11 @@ export class HarvesterUnit extends BaseUnit {
         this.onHarvest = config.onHarvest;
 
         const size = 34;
-        this.bodySprite = this.scene.add.rectangle(0, 0, size, size, this.color);
-        this.add(this.bodySprite);
+        this.bodySprite = addTintedSprite(this.scene, this, 'harvester-body', this.color, size, size);
 
         // Буровая насадка
         this.drillSprite = this.scene.add.rectangle(0, -size * 0.6, size * 0.4, size * 0.5, 0xcccccc);
+        this.drillSprite.setData('noRecolor', true);
         this.add(this.drillSprite);
 
         this.scene.matter.add.gameObject(this, {
@@ -128,7 +129,7 @@ export class HarvesterUnit extends BaseUnit {
     protected onDamage() {
         this.scene.tweens.add({
             targets: this.bodySprite,
-            fillAlpha: 0.5,
+            alpha: 0.5,
             duration: 50,
             yoyo: true
         });

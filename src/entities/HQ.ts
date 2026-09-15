@@ -1,12 +1,12 @@
 import 'phaser';
 import { BaseBuilding, BuildingConfig } from './BaseBuilding';
+import { addTintedSprite } from '../ui/tintedSprite';
 
 /**
  * Главная база (HQ) команды. Уничтожение HQ означает конец игры.
  */
 export class HQ extends BaseBuilding {
-    private bodySprite: Phaser.GameObjects.Rectangle;
-    private flagSprite: Phaser.GameObjects.Rectangle;
+    private bodySprite: Phaser.GameObjects.Image;
     private onDestroyed: (team: number) => void;
 
     constructor(config: BuildingConfig & { onDestroyed: (team: number) => void }) {
@@ -17,14 +17,8 @@ export class HQ extends BaseBuilding {
 
         this.onDestroyed = config.onDestroyed;
 
-        // Визуал: большой квадрат с крестом/флагом
-        this.bodySprite = this.scene.add.rectangle(0, 0, 80, 80, this.color);
-        this.bodySprite.setStrokeStyle(4, 0xffffff);
-        this.add(this.bodySprite);
-
-        // Флаг/символ сверху
-        this.flagSprite = this.scene.add.rectangle(0, -30, 20, 20, 0xffffff);
-        this.add(this.flagSprite);
+        // Визуал: SVG-силуэт базы с флагом (красится через tint)
+        this.bodySprite = addTintedSprite(this.scene, this, 'hq', this.color, 80, 80);
 
         // Статичное тело Matter
         this.scene.matter.add.gameObject(this, {
@@ -36,7 +30,7 @@ export class HQ extends BaseBuilding {
     protected onDamage() {
         this.scene.tweens.add({
             targets: this.bodySprite,
-            fillAlpha: 0.5,
+            alpha: 0.5,
             duration: 50,
             yoyo: true
         });

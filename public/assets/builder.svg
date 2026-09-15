@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <!-- helmet dome (team color via tint) -->
+  <path d="M11 14 A9 9 0 0 1 29 14 Z" fill="#fff" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="18.6" y="4" width="2.8" height="4" fill="#222"/>
+  <!-- body (team color via tint) -->
+  <rect x="8" y="14" width="24" height="20" rx="3" fill="#fff" stroke="#111" stroke-width="2.5"/>
+  <!-- visor (stays dark) -->
+  <rect x="13" y="19" width="14" height="7" rx="1.5" fill="#222" stroke="#111" stroke-width="1"/>
+  <!-- tool stripe (stays dark) -->
+  <rect x="13" y="29" width="14" height="2.5" fill="#555"/>
+</svg>

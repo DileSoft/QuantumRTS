@@ -1,8 +1,9 @@
 import 'phaser';
 import { BaseUnit, UnitConfig } from './BaseUnit';
+import { addTintedSprite } from '../ui/tintedSprite';
 
 export class BuilderUnit extends BaseUnit {
-    private bodySprite: Phaser.GameObjects.Rectangle;
+    private bodySprite: Phaser.GameObjects.Image;
     private onBuild: (x: number, y: number, team: number, color: number) => void;
 
     constructor(config: UnitConfig & { onBuild: (x: number, y: number, team: number, color: number) => void }) {
@@ -11,9 +12,7 @@ export class BuilderUnit extends BaseUnit {
         this.onBuild = config.onBuild;
 
         const size = 40;
-        this.bodySprite = this.scene.add.rectangle(0, 0, size, size, this.color);
-        this.bodySprite.setStrokeStyle(2, 0xffffff);
-        this.add(this.bodySprite);
+        this.bodySprite = addTintedSprite(this.scene, this, 'builder', this.color, size, size);
 
         this.scene.matter.add.gameObject(this, {
             shape: { type: 'rectangle', width: size, height: size },
@@ -36,7 +35,7 @@ export class BuilderUnit extends BaseUnit {
     protected onDamage() {
         this.scene.tweens.add({
             targets: this.bodySprite,
-            fillAlpha: 0.5,
+            alpha: 0.5,
             duration: 50,
             yoyo: true
         });

@@ -1,19 +1,22 @@
 import 'phaser';
 
 export class HealObject extends Phaser.GameObjects.Container {
-    private bodySprite: Phaser.GameObjects.Arc;
+    private bodySprite: Phaser.GameObjects.Image;
+    private glowSprite: Phaser.GameObjects.Arc;
     public isHealing: boolean = true; // Changes to harmful in clouds
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         super(scene, x, y);
-        
-        // Visuals: a glowing green circle
-        this.bodySprite = scene.add.arc(0, 0, 10, 0, 360, false, 0x2ecc71);
+
+        // Подсветка под артефактом
+        this.glowSprite = scene.add.arc(0, 0, 15, 0, 360, false, 0x2ecc71, 0.3);
+        this.add(this.glowSprite);
+
+        // Визуал: SVG-артефакт (красится через tint: зелёный/красный)
+        this.bodySprite = scene.add.image(0, 0, 'artifact');
+        this.bodySprite.setDisplaySize(20, 20);
+        this.bodySprite.setTint(0x2ecc71);
         this.add(this.bodySprite);
-        
-        // Add a glow effect using a larger semi-transparent circle
-        const glow = scene.add.arc(0, 0, 15, 0, 360, false, 0x2ecc71, 0.3);
-        this.add(glow);
 
         scene.add.existing(this);
         scene.matter.add.gameObject(this, { 
@@ -39,10 +42,12 @@ export class HealObject extends Phaser.GameObjects.Container {
 
     public updateVisuals(inCloud: boolean) {
         if (inCloud) {
-            this.bodySprite.setFillStyle(0xe74c3c); // Red for danger
+            this.bodySprite.setTint(0xe74c3c); // Red for danger
+            this.glowSprite.setFillStyle(0xe74c3c, 0.3);
             this.isHealing = false;
         } else {
-            this.bodySprite.setFillStyle(0x2ecc71); // Green for health
+            this.bodySprite.setTint(0x2ecc71); // Green for health
+            this.glowSprite.setFillStyle(0x2ecc71, 0.3);
             this.isHealing = true;
         }
     }

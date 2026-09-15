@@ -1,9 +1,10 @@
 import 'phaser';
 import { BaseEntity } from './BaseEntity';
 import { BaseUnit, UnitConfig } from './BaseUnit';
+import { addTintedSprite } from '../ui/tintedSprite';
 
 export class TankUnit extends BaseUnit {
-    private bodySprite: Phaser.GameObjects.Rectangle;
+    private bodySprite: Phaser.GameObjects.Image;
     private attackRange: number = 200;
     private lastFired: number = 0;
     private baseFireRate: number = 1000;
@@ -14,8 +15,7 @@ export class TankUnit extends BaseUnit {
         this.currentFireRate = this.baseFireRate + Phaser.Math.Between(-200, 200);
 
         const size = 30;
-        this.bodySprite = this.scene.add.rectangle(0, 0, size, size, this.color);
-        this.add(this.bodySprite);
+        this.bodySprite = addTintedSprite(this.scene, this, 'tank', this.color, size, size);
 
         this.scene.matter.add.gameObject(this, {
             shape: { type: 'rectangle', width: size, height: size },
@@ -106,7 +106,7 @@ export class TankUnit extends BaseUnit {
     protected onDamage() {
         this.scene.tweens.add({
             targets: this.bodySprite,
-            fillAlpha: 0.5,
+            alpha: 0.5,
             duration: 50,
             yoyo: true
         });

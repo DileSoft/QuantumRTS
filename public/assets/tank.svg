@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30">
+  <!-- tracks (stay dark after tint) -->
+  <rect x="2" y="4" width="5" height="22" rx="1.5" fill="#3a3a3a" stroke="#111" stroke-width="1.5"/>
+  <rect x="23" y="4" width="5" height="22" rx="1.5" fill="#3a3a3a" stroke="#111" stroke-width="1.5"/>
+  <!-- barrel (stays dark) -->
+  <rect x="13.4" y="0" width="3.2" height="13" fill="#222" stroke="#111" stroke-width="1"/>
+  <!-- hull (team color via tint) -->
+  <rect x="7" y="5" width="16" height="20" rx="2" fill="#fff" stroke="#111" stroke-width="2"/>
+  <!-- turret (team color via tint) -->
+  <circle cx="15" cy="16" r="6.5" fill="#fff" stroke="#111" stroke-width="2"/>
+  <circle cx="15" cy="16" r="2" fill="#222"/>
+</svg>
