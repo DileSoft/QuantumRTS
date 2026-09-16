@@ -48,9 +48,10 @@ export class HarvesterUnit extends BaseUnit {
     }
 
     private handleHarvesting(time: number, fields: ResourceField[], clouds: ProbabilityCloud[]) {
-        // Если нет активного приказа — идти к ближайшей жиле в радиусе поиска
+        // Если нет активного приказа — идти к ближайшей жиле.
+        // Сначала ищем в радиусе поиска, иначе — ближайшую anywhere, чтобы не стоять на месте.
         if ((this.targetX === null || this.targetY === null) && fields.length > 0) {
-            const nearest = this.findNearestField(fields);
+            const nearest = this.findNearestField(fields) ?? this.findNearestFieldAnywhere(fields);
             if (nearest) {
                 this.currentField = nearest;
                 const distToField = Phaser.Math.Distance.Between(this.x, this.y, nearest.x, nearest.y);
@@ -97,6 +98,26 @@ export class HarvesterUnit extends BaseUnit {
     private findNearestField(fields: ResourceField[]): ResourceField | null {
         let nearest: ResourceField | null = null;
         let minDist = CONFIG.harvest.findRange;
+
+        for (const field of fields) {
+            if (!field.active) continue;
+            const dist = Phaser.Math.Distance.Between(this.x, this.y, field.x, field.y);
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = field;
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * Ближайшая активная жила без ограничения радиуса.
+     * Fallback, чтобы харвестер не стоял на месте, когда рядом ничего нет.
+     */
+    private findNearestFieldAnywhere(fields: ResourceField[]): ResourceField | null {
+        let nearest: ResourceField | null = null;
+        let minDist = Number.POSITIVE_INFINITY;
 
         for (const field of fields) {
             if (!field.active) continue;

@@ -17,9 +17,9 @@ export interface AiSceneApi {
     getEnemyBasePosition(team: number): { x: number; y: number };
     getWorldWidth(): number;
     getWorldHeight(): number;
-    aiSpawnBuilder(x: number, y: number, team: number, color: number): void;
-    aiSpawnHarvester(x: number, y: number, team: number, color: number): void;
-    aiCreateFactory(x: number, y: number, team: number, color: number): boolean;
+    aiSpawnBuilder(x: number | null, y: number | null, team: number, color: number): void;
+    aiSpawnHarvester(x: number | null, y: number | null, team: number, color: number): void;
+    aiCreateFactory(builder: BuilderUnit): boolean;
     aiStartProduction(factory: Factory): void;
     aiOrderAttack(factory: Factory): void;
     aiGetCredits(team: number): number;
@@ -60,21 +60,18 @@ export class AiController {
         const builders = this.scene.getTeamBuilders(this.team);
 
         // 1. Харвестеры для экономики (если ещё не набрали нужное число)
+        // Спавн у своего HQ — координаты подставит GameScene.spawnHarvester
         const harvesters = units.filter(u => u instanceof HarvesterUnit).length;
         if (harvesters < CONFIG.ai.harvesters && credits >= CONFIG.costs.harvester) {
-            this.scene.aiSpawnHarvester(
-                Phaser.Math.Between(100, this.scene.getWorldWidth() - 100),
-                Phaser.Math.Between(100, this.scene.getWorldHeight() - 100),
-                this.team,
-                this.color
-            );
+            this.scene.aiSpawnHarvester(null, null, this.team, this.color);
             return;
         }
 
         // 2. Строим фабрику, если есть билдер и нет фабрик (или меньше лимита)
+        // Билдер расходуется на стройку, как у игрока
         if (factories.length < CONFIG.ai.maxFactories && builders.length > 0 && credits >= CONFIG.costs.factory) {
             const builder = builders[0];
-            const ok = this.scene.aiCreateFactory(builder.x, builder.y, this.team, this.color);
+            const ok = this.scene.aiCreateFactory(builder);
             if (ok) return;
         }
 

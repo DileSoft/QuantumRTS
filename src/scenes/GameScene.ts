@@ -521,20 +521,24 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         return team === 1 ? { x: this.worldWidth - 200, y: this.worldHeight - 200 } : { x: 200, y: 200 };
     }
 
-    public aiSpawnBuilder(x: number, y: number, team: number, color: number): void {
-        this.spawnBuilder(x, y, team, color);
+    public aiSpawnBuilder(x: number | null, y: number | null, team: number, color: number): void {
+        this.spawnBuilder(x ?? this.worldWidth - 250, y ?? this.worldHeight - 280, team, color);
     }
 
-    public aiSpawnHarvester(x: number, y: number, team: number, color: number): void {
+    public aiSpawnHarvester(x: number | null, y: number | null, team: number, color: number): void {
         this.spawnHarvester(x, y, team, color);
     }
 
-    public aiCreateFactory(x: number, y: number, team: number, color: number): boolean {
+    public aiCreateFactory(builder: BuilderUnit): boolean {
+        if (!builder.active || builder.hp <= 0) return false;
         // Требуем ресурсы ДО создания (в отличие от createFactory через билдера)
-        if (!this.getEconomy(team).spend(CONFIG.costs.factory)) {
+        if (!this.getEconomy(builder.team).spend(CONFIG.costs.factory)) {
             return false;
         }
-        this.createFactoryAt(x, y, team, color);
+        this.createFactoryAt(builder.x, builder.y, builder.team, builder.color);
+        // Билдер расходуется на стройку, как у игрока (без лога потери)
+        this.removeEntity(builder, true);
+        builder.destroy();
         return true;
     }
 
