@@ -27,7 +27,7 @@ export class Factory extends BaseBuilding {
 
         this.bodySprite = addTintedSprite(this.scene, this, 'factory', this.color, 60, 60);
 
-        this.progressText = this.scene.add.text(0, 45, 'Idle', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
+        this.progressText = this.scene.add.text(0, 45, 'Ожидает', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
         this.add(this.progressText);
 
         this.scene.matter.add.gameObject(this, { 
@@ -49,15 +49,15 @@ export class Factory extends BaseBuilding {
 
         const currentRate = inCloud ? this.baseProductionRate / 2 : this.baseProductionRate;
         const progress = Math.min(1, (time - this.productionStartTime) / currentRate);
-        const queueText = this.productionQueue > 1 ? ` (Queue: ${this.productionQueue})` : '';
-        this.progressText.setText(`Build: ${Math.floor(progress * 100)}%${inCloud ? ' (BOOST)' : ''}${queueText}`);
+        const queueText = this.productionQueue > 1 ? ` (Очередь: ${this.productionQueue})` : '';
+        this.progressText.setText(`Строится: ${Math.floor(progress * 100)}%${inCloud ? ' (УСКОРЕНИЕ)' : ''}${queueText}`);
 
         if (time > this.productionStartTime + currentRate) {
             this.productionStartTime = null;
             this.productionQueue--;
             
             if (this.productionQueue <= 0) {
-                this.progressText.setText('Idle');
+                this.progressText.setText('Ожидает');
             }
             
             const spawnY = this.y + 70;

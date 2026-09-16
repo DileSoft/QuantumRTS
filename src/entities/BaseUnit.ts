@@ -96,7 +96,7 @@ export abstract class BaseUnit extends BaseEntity {
         this.color = this.team === 1 ? 0x3498db : 0xe74c3c;
         this.updateBodyColor();
 
-        const statusText = this.scene.add.text(0, -50, 'CONVERTED!', {
+        const statusText = this.scene.add.text(0, -50, 'ПРЕВРАЩЁН!', {
             fontSize: '10px',
             color: '#ffff00',
             backgroundColor: '#000'
@@ -135,7 +135,7 @@ export abstract class BaseUnit extends BaseEntity {
         this.color = this.originalColor;
         this.updateBodyColor();
 
-        const text = this.scene.add.text(this.x, this.y - 40, 'REVERTED', {
+        const text = this.scene.add.text(this.x, this.y - 40, 'ВОЗВРАЩЁН', {
             fontSize: '14px',
             color: '#00ff00',
             fontStyle: 'bold'

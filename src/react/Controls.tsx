@@ -19,7 +19,7 @@ export function Controls() {
                     }}
                     onClick={() => gameBridge.callAction('spawnHarvester')}
                 >
-                    Spawn Harvester ({CONFIG.costs.harvester})
+                    Создать харвестер ({CONFIG.costs.harvester})
                 </button>
             )}
             <button id="focus-base" onClick={() => gameBridge.callAction('focusBase')}>🎯 База</button>
@@ -33,7 +33,7 @@ export function Controls() {
                     }}
                     onClick={() => gameBridge.callAction('build')}
                 >
-                    Build Factory ({CONFIG.costs.factory})
+                    Построить фабрику ({CONFIG.costs.factory})
                 </button>
             )}
             {selection.factory && (
@@ -46,7 +46,7 @@ export function Controls() {
                     }}
                     onClick={() => gameBridge.callAction('produce')}
                 >
-                    Produce Tank ({CONFIG.costs.tank})
+                    Произвести танк ({CONFIG.costs.tank})
                 </button>
             )}
         </div>
