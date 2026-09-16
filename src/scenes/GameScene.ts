@@ -219,6 +219,7 @@ export class GameScene extends Phaser.Scene implements AiSceneApi {
         }
 
         // HUD: кредиты и лог через React-мост
+        gameBridge.setHudVisible(true);
         gameBridge.clearLog();
         gameBridge.log('Игра началась. Уничтожьте HQ врага!', 'info', 0);
 

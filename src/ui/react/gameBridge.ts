@@ -32,6 +32,7 @@ export interface GameOverState {
 export type BridgeActionName = 'spawnHarvester' | 'focusBase' | 'build' | 'produce' | 'restart';
 
 interface BridgeSnapshot {
+    hudVisible: boolean;
     creditsBlue: number;
     creditsRed: number;
     selection: SelectionState;
@@ -41,6 +42,7 @@ interface BridgeSnapshot {
 }
 
 const initialSnapshot: BridgeSnapshot = {
+    hudVisible: false,
     creditsBlue: CONFIG.startCredits,
     creditsRed: CONFIG.startCredits,
     selection: { builder: false, factory: false, hq: false },
@@ -77,6 +79,12 @@ export const gameBridge = {
 
     getSnapshot(): BridgeSnapshot {
         return snapshot;
+    },
+
+    setHudVisible(visible: boolean) {
+        if (snapshot.hudVisible === visible) return;
+        snapshot = { ...snapshot, hudVisible: visible };
+        emit();
     },
 
     setCredits(blue: number, red: number) {
@@ -127,7 +135,8 @@ export const gameBridge = {
     },
 
     reset() {
-        snapshot = { ...initialSnapshot, selection: { ...initialSnapshot.selection }, affordability: { ...initialSnapshot.affordability }, log: [] };
+        const hudVisible = snapshot.hudVisible;
+        snapshot = { ...initialSnapshot, selection: { ...initialSnapshot.selection }, affordability: { ...initialSnapshot.affordability }, log: [], hudVisible };
         emit();
     },
 

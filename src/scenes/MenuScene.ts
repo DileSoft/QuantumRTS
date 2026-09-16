@@ -1,4 +1,5 @@
 import 'phaser';
+import { gameBridge } from '../ui/react/gameBridge';
 
 /**
  * Главное меню: старт игры и правила.
@@ -9,6 +10,8 @@ export class MenuScene extends Phaser.Scene {
     }
 
     create() {
+        // Прячем игровой HUD до старта игры
+        gameBridge.setHudVisible(false);
         // Фон
         this.add.rectangle(
             window.innerWidth / 2,
