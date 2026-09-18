@@ -2,6 +2,7 @@ import { CreditsHud } from './CreditsHud';
 import { Controls } from './Controls';
 import { EventLogView } from './EventLogView';
 import { GameOverOverlay } from './GameOverOverlay';
+import { GuidePanel } from './GuidePanel';
 import { Instructions } from './Instructions';
 import { useBridge } from './useBridge';
 import './App.css';
@@ -21,6 +22,7 @@ export function App() {
                 </>
             )}
             <GameOverOverlay />
+            <GuidePanel />
         </>
     );
 }

@@ -1,4 +1,5 @@
 import 'phaser';
+import { gameBridge } from '../ui/react/gameBridge';
 
 /**
  * Экран паузы. Вызывается по Esc из GameScene.
@@ -33,15 +34,20 @@ export class PauseScene extends Phaser.Scene {
             this.scene.resume('GameScene');
         });
 
+        // Кнопка «Справочник»
+        this.makeMenuButton('Справочник', 420, 0x8e44ad, () => {
+            gameBridge.setGuideVisible(true);
+        });
+
         // Кнопка «В меню»
-        this.makeMenuButton('В главное меню', 420, 0x3498db, () => {
+        this.makeMenuButton('В главное меню', 520, 0x3498db, () => {
             this.scene.stop(); // остановить PauseScene
             this.scene.stop('GameScene'); // остановить игру
             this.scene.start('MenuScene');
         });
 
         // Кнопка «Заново»
-        this.makeMenuButton('Начать заново', 520, 0xe67e22, () => {
+        this.makeMenuButton('Начать заново', 620, 0xe67e22, () => {
             this.scene.stop(); // остановить PauseScene
             this.scene.stop('GameScene'); // остановить текущую игру
             this.scene.start('GameScene'); // и стартовать новую

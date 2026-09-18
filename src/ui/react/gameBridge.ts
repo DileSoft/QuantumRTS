@@ -33,6 +33,7 @@ export type BridgeActionName = 'spawnHarvester' | 'focusBase' | 'build' | 'produ
 
 interface BridgeSnapshot {
     hudVisible: boolean;
+    guideVisible: boolean;
     creditsBlue: number;
     creditsRed: number;
     selection: SelectionState;
@@ -43,6 +44,7 @@ interface BridgeSnapshot {
 
 const initialSnapshot: BridgeSnapshot = {
     hudVisible: false,
+    guideVisible: false,
     creditsBlue: CONFIG.startCredits,
     creditsRed: CONFIG.startCredits,
     selection: { builder: false, factory: false, hq: false },
@@ -84,6 +86,12 @@ export const gameBridge = {
     setHudVisible(visible: boolean) {
         if (snapshot.hudVisible === visible) return;
         snapshot = { ...snapshot, hudVisible: visible };
+        emit();
+    },
+
+    setGuideVisible(visible: boolean) {
+        if (snapshot.guideVisible === visible) return;
+        snapshot = { ...snapshot, guideVisible: visible };
         emit();
     },
 

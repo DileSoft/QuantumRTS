@@ -61,6 +61,19 @@ export class MenuScene extends Phaser.Scene {
             this.showRules();
         });
 
+        // Кнопка «Справочник»
+        const guideBtn = this.add.rectangle(window.innerWidth / 2, 540, 300, 60, 0x8e44ad)
+            .setInteractive({ useHandCursor: true });
+        this.add.text(window.innerWidth / 2, 540, 'Справочник', {
+            fontSize: '28px',
+            fontStyle: 'bold',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+
+        guideBtn.on('pointerdown', () => {
+            gameBridge.setGuideVisible(true);
+        });
+
         // Версия
         this.add.text(window.innerWidth / 2, window.innerHeight - 40, 'Демо-версия 0.1.0', {
             fontSize: '14px',
